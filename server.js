@@ -329,10 +329,9 @@ app.listen(PORT, () => {
   console.log('========================================');
   console.log('  筛词神器 - 口令登录系统 (Supabase版)');
   console.log('========================================');
-  console.log('');
-  console.log(`  服务地址: <ADDRESS_REMOVED>
-  console.log(`  登录地址: <ADDRESS_REMOVED>
-  console.log(`  管理后台: <ADDRESS_REMOVED>
+  console.log(`  服务地址: http://localhost:${PORT}`);
+  console.log(`  登录地址: http://localhost:${PORT}/login`);
+  console.log(`  管理后台: http://localhost:${PORT}/admin`);
   console.log('');
   console.log('  默认管理员密码: admin123');
   console.log('');

@@ -22,7 +22,11 @@ app.use(session({
 }));
 
 // 初始化数据库
-db.initDatabase();
+db.initDatabase().then(() => {
+  console.log('数据库初始化完成');
+}).catch(err => {
+  console.error('数据库初始化失败:', err);
+});
 
 // ============ 工具函数 ============
 
@@ -37,8 +41,8 @@ function getClientIP(req) {
 }
 
 // 验证口令是否有效
-function verifyPassword(password) {
-  const pwd = db.findPasswordByValue(password);
+async function verifyPassword(password) {
+  const pwd = await db.findPasswordByValue(password);
   
   if (!pwd) {
     return { error: '口令错误或无权限' };
@@ -106,14 +110,14 @@ app.get('/admin', (req, res) => {
 });
 
 // API: 验证口令
-app.post('/api/verify', (req, res) => {
+app.post('/api/verify', async (req, res) => {
   const { password } = req.body;
 
   if (!password) {
     return res.json({ success: false, message: '请输入口令' });
   }
 
-  const result = verifyPassword(password);
+  const result = await verifyPassword(password);
 
   if (result.error) {
     return res.json({ success: false, message: result.error });
@@ -124,15 +128,19 @@ app.post('/api/verify', (req, res) => {
   req.session.passwordName = result.name;
 
   // 记录访问日志
-  db.addLog({
-    password_id: result.id,
-    password_name: result.name,
-    ip_address: getClientIP(req),
-    user_agent: req.headers['user-agent'] || ''
-  });
+  try {
+    await db.addLog({
+      password_id: result.id,
+      password_name: result.name,
+      ip_address: getClientIP(req),
+      user_agent: req.headers['user-agent'] || ''
+    });
 
-  // 增加使用次数
-  db.incrementPasswordUsage(result.id);
+    // 增加使用次数
+    await db.incrementPasswordUsage(result.id);
+  } catch (err) {
+    console.error('记录日志失败:', err);
+  }
 
   res.json({ success: true, message: '验证成功' });
 });
@@ -159,20 +167,24 @@ app.post('/api/logout', (req, res) => {
 // ============ 管理员 API ============
 
 // API: 管理员登录
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
   const { password } = req.body;
 
   if (!password) {
     return res.json({ success: false, message: '请输入管理员密码' });
   }
 
-  const adminPassword = db.getSetting('admin_password') || 'admin123';
+  try {
+    const adminPassword = await db.getSetting('admin_password') || 'admin123';
 
-  if (password === adminPassword) {
-    req.session.isAdmin = true;
-    res.json({ success: true, message: '登录成功' });
-  } else {
-    res.json({ success: false, message: '管理员密码错误' });
+    if (password === adminPassword) {
+      req.session.isAdmin = true;
+      res.json({ success: true, message: '登录成功' });
+    } else {
+      res.json({ success: false, message: '管理员密码错误' });
+    }
+  } catch (err) {
+    res.json({ success: false, message: '登录失败' });
   }
 });
 
@@ -192,32 +204,36 @@ app.get('/api/admin/check', (req, res) => {
 });
 
 // API: 获取访问日志
-app.get('/api/admin/logs', requireAdmin, (req, res) => {
-  const logs = db.getLogs();
-  const limit = parseInt(req.query.limit) || 100;
-  const offset = parseInt(req.query.offset) || 0;
+app.get('/api/admin/logs', requireAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
 
-  // 按时间倒序排列
-  const sortedLogs = logs.sort((a, b) => new Date(b.accessed_at) - new Date(a.accessed_at));
-  
-  // 分页
-  const paginatedLogs = sortedLogs.slice(offset, offset + limit);
+    const logs = await db.getLogs(limit, offset);
+    const total = await db.getLogsCount();
 
-  res.json({ 
-    success: true, 
-    logs: paginatedLogs, 
-    total: logs.length 
-  });
+    res.json({ 
+      success: true, 
+      logs: logs, 
+      total: total 
+    });
+  } catch (err) {
+    res.json({ success: false, message: '获取日志失败' });
+  }
 });
 
 // API: 获取所有口令
-app.get('/api/admin/passwords', requireAdmin, (req, res) => {
-  const passwords = db.getPasswords();
-  res.json({ success: true, passwords });
+app.get('/api/admin/passwords', requireAdmin, async (req, res) => {
+  try {
+    const passwords = await db.getPasswords();
+    res.json({ success: true, passwords });
+  } catch (err) {
+    res.json({ success: false, message: '获取口令失败' });
+  }
 });
 
 // API: 创建口令
-app.post('/api/admin/passwords', requireAdmin, (req, res) => {
+app.post('/api/admin/passwords', requireAdmin, async (req, res) => {
   const { name, password, expires_at, max_uses, is_active } = req.body;
 
   if (!name || !password) {
@@ -225,7 +241,7 @@ app.post('/api/admin/passwords', requireAdmin, (req, res) => {
   }
 
   try {
-    const newPassword = db.addPassword({
+    const newPassword = await db.addPassword({
       name,
       password,
       expires_at: expires_at || null,
@@ -235,17 +251,17 @@ app.post('/api/admin/passwords', requireAdmin, (req, res) => {
 
     res.json({ success: true, id: newPassword.id });
   } catch (err) {
-    res.json({ success: false, message: '创建失败' });
+    res.json({ success: false, message: '创建失败: ' + err.message });
   }
 });
 
 // API: 更新口令
-app.put('/api/admin/passwords/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/passwords/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { name, password, expires_at, max_uses, is_active } = req.body;
 
   try {
-    const updated = db.updatePassword(parseInt(id), {
+    const updated = await db.updatePassword(parseInt(id), {
       name,
       password,
       expires_at: expires_at || null,
@@ -259,16 +275,16 @@ app.put('/api/admin/passwords/:id', requireAdmin, (req, res) => {
       res.json({ success: false, message: '口令不存在' });
     }
   } catch (err) {
-    res.json({ success: false, message: '更新失败' });
+    res.json({ success: false, message: '更新失败: ' + err.message });
   }
 });
 
 // API: 删除口令
-app.delete('/api/admin/passwords/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/passwords/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deleted = db.deletePassword(parseInt(id));
+    const deleted = await db.deletePassword(parseInt(id));
     if (deleted) {
       res.json({ success: true });
     } else {
@@ -280,7 +296,7 @@ app.delete('/api/admin/passwords/:id', requireAdmin, (req, res) => {
 });
 
 // API: 更新系统设置
-app.put('/api/admin/settings', requireAdmin, (req, res) => {
+app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   const { key, value } = req.body;
 
   if (!key || !value) {
@@ -288,7 +304,7 @@ app.put('/api/admin/settings', requireAdmin, (req, res) => {
   }
 
   try {
-    db.saveSetting(key, value);
+    await db.saveSetting(key, value);
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false, message: '更新失败' });
@@ -296,21 +312,27 @@ app.put('/api/admin/settings', requireAdmin, (req, res) => {
 });
 
 // API: 获取系统设置
-app.get('/api/admin/settings', requireAdmin, (req, res) => {
-  const settings = db.getSettings();
-  res.json({ success: true, settings });
+app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+  try {
+    const settings = {};
+    const adminPassword = await db.getSetting('admin_password');
+    settings.admin_password = adminPassword || 'admin123';
+    res.json({ success: true, settings });
+  } catch (err) {
+    res.json({ success: false, message: '获取设置失败' });
+  }
 });
 
 // 启动服务器
 app.listen(PORT, () => {
   console.log('');
   console.log('========================================');
-  console.log('  筛词神器 - 口令登录系统');
+  console.log('  筛词神器 - 口令登录系统 (Supabase版)');
   console.log('========================================');
   console.log('');
-  console.log(`  服务地址: http://localhost:${PORT}`);
-  console.log(`  登录地址: http://localhost:${PORT}/login`);
-  console.log(`  管理后台: http://localhost:${PORT}/admin`);
+  console.log(`  服务地址: <ADDRESS_REMOVED>
+  console.log(`  登录地址: <ADDRESS_REMOVED>
+  console.log(`  管理后台: <ADDRESS_REMOVED>
   console.log('');
   console.log('  默认管理员密码: admin123');
   console.log('');

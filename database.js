@@ -1,204 +1,267 @@
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Supabase 配置（从环境变量读取，默认值用于本地开发）
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wgjhijtfhqtkdgddtcwh.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || 'sb_publishable_4JkQtzY24ldcGfE7BcZs0Q_hdN1Ms-e';
 
-// 确保数据目录存在
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-const PASSWORDS_FILE = path.join(DATA_DIR, 'passwords.json');
-const LOGS_FILE = path.join(DATA_DIR, 'access_logs.json');
-const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
-
-// 读取 JSON 文件
-function readJSON(filePath, defaultData = []) {
-  try {
-    if (!fs.existsSync(filePath)) {
-      writeJSON(filePath, defaultData);
-      return defaultData;
-    }
-    const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    console.error(`读取文件失败 ${filePath}:`, err);
-    return defaultData;
-  }
-}
-
-// 写入 JSON 文件
-function writeJSON(filePath, data) {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-    return true;
-  } catch (err) {
-    console.error(`写入文件失败 ${filePath}:`, err);
-    return false;
-  }
-}
-
-// 生成 ID
-function generateId(items) {
-  if (items.length === 0) return 1;
-  const maxId = Math.max(...items.map(item => item.id || 0));
-  return maxId + 1;
-}
+// 创建 Supabase 客户端
+// 注意：这里先用 anon key，如果表禁用了 RLS 就可以直接用
+// 如果启用了 RLS，需要换成 service_role key
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ 口令操作 ============
 
 // 获取所有口令
-function getPasswords() {
-  return readJSON(PASSWORDS_FILE, []);
-}
-
-// 保存所有口令
-function savePasswords(passwords) {
-  return writeJSON(PASSWORDS_FILE, passwords);
+async function getPasswords() {
+  const { data, error } = await supabase
+    .from('passwords')
+    .select('*')
+    .order('id', { ascending: true });
+  
+  if (error) {
+    console.error('获取口令失败:', error);
+    return [];
+  }
+  
+  return data || [];
 }
 
 // 根据口令值查找口令
-function findPasswordByValue(passwordValue) {
-  const passwords = getPasswords();
-  return passwords.find(p => p.password === passwordValue && p.is_active);
+async function findPasswordByValue(passwordValue) {
+  const { data, error } = await supabase
+    .from('passwords')
+    .select('*')
+    .eq('password', passwordValue)
+    .eq('is_active', 1)
+    .single();
+  
+  if (error) {
+    if (error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('查找口令失败:', error);
+    }
+    return null;
+  }
+  
+  return data;
 }
 
 // 根据 ID 查找口令
-function findPasswordById(id) {
-  const passwords = getPasswords();
-  return passwords.find(p => p.id === id);
+async function findPasswordById(id) {
+  const { data, error } = await supabase
+    .from('passwords')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) {
+    console.error('查找口令失败:', error);
+    return null;
+  }
+  
+  return data;
 }
 
 // 添加口令
-function addPassword(passwordData) {
-  const passwords = getPasswords();
-  const newPassword = {
-    id: generateId(passwords),
-    name: passwordData.name,
-    password: passwordData.password,
-    created_at: new Date().toISOString(),
-    expires_at: passwordData.expires_at || null,
-    max_uses: passwordData.max_uses || null,
-    used_count: 0,
-    is_active: passwordData.is_active !== undefined ? passwordData.is_active : 1
-  };
-  passwords.push(newPassword);
-  savePasswords(passwords);
-  return newPassword;
+async function addPassword(passwordData) {
+  const { data, error } = await supabase
+    .from('passwords')
+    .insert([
+      {
+        name: passwordData.name,
+        password: passwordData.password,
+        expires_at: passwordData.expires_at || null,
+        max_uses: passwordData.max_uses || null,
+        used_count: 0,
+        is_active: passwordData.is_active !== undefined ? passwordData.is_active : 1
+      }
+    ])
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('添加口令失败:', error);
+    throw error;
+  }
+  
+  return data;
 }
 
 // 更新口令
-function updatePassword(id, passwordData) {
-  const passwords = getPasswords();
-  const index = passwords.findIndex(p => p.id === id);
-  if (index === -1) return null;
+async function updatePassword(id, passwordData) {
+  const { data, error } = await supabase
+    .from('passwords')
+    .update(passwordData)
+    .eq('id', id)
+    .select()
+    .single();
   
-  passwords[index] = { ...passwords[index], ...passwordData };
-  savePasswords(passwords);
-  return passwords[index];
+  if (error) {
+    console.error('更新口令失败:', error);
+    return null;
+  }
+  
+  return data;
 }
 
 // 删除口令
-function deletePassword(id) {
-  const passwords = getPasswords();
-  const filtered = passwords.filter(p => p.id !== id);
-  if (filtered.length === passwords.length) return false;
-  savePasswords(filtered);
+async function deletePassword(id) {
+  const { error } = await supabase
+    .from('passwords')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('删除口令失败:', error);
+    return false;
+  }
+  
   return true;
 }
 
 // 增加口令使用次数
-function incrementPasswordUsage(id) {
-  const passwords = getPasswords();
-  const index = passwords.findIndex(p => p.id === id);
-  if (index === -1) return;
+async function incrementPasswordUsage(id) {
+  // 先获取当前值
+  const { data: current, error: fetchError } = await supabase
+    .from('passwords')
+    .select('used_count')
+    .eq('id', id)
+    .single();
   
-  passwords[index].used_count = (passwords[index].used_count || 0) + 1;
-  savePasswords(passwords);
+  if (fetchError) {
+    console.error('获取使用次数失败:', fetchError);
+    return;
+  }
+  
+  // 再更新
+  const { error } = await supabase
+    .from('passwords')
+    .update({ used_count: (current.used_count || 0) + 1 })
+    .eq('id', id);
+  
+  if (error) {
+    console.error('更新使用次数失败:', error);
+  }
 }
 
 // ============ 访问日志操作 ============
 
 // 获取所有日志
-function getLogs() {
-  return readJSON(LOGS_FILE, []);
+async function getLogs(limit = 100, offset = 0) {
+  const { data, error } = await supabase
+    .from('access_logs')
+    .select('*')
+    .order('accessed_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  
+  if (error) {
+    console.error('获取日志失败:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// 获取日志总数
+async function getLogsCount() {
+  const { count, error } = await supabase
+    .from('access_logs')
+    .select('*', { count: 'exact', head: true });
+  
+  if (error) {
+    console.error('获取日志总数失败:', error);
+    return 0;
+  }
+  
+  return count || 0;
 }
 
 // 添加日志
-function addLog(logData) {
-  const logs = getLogs();
-  const newLog = {
-    id: generateId(logs),
-    password_id: logData.password_id,
-    password_name: logData.password_name,
-    ip_address: logData.ip_address,
-    user_agent: logData.user_agent,
-    accessed_at: new Date().toISOString()
-  };
-  logs.push(newLog);
+async function addLog(logData) {
+  const { data, error } = await supabase
+    .from('access_logs')
+    .insert([
+      {
+        password_id: logData.password_id,
+        password_name: logData.password_name,
+        ip_address: logData.ip_address,
+        user_agent: logData.user_agent || ''
+      }
+    ])
+    .select()
+    .single();
   
-  // 只保留最近 1000 条日志
-  if (logs.length > 1000) {
-    logs.splice(0, logs.length - 1000);
+  if (error) {
+    console.error('添加日志失败:', error);
+    throw error;
   }
   
-  saveLogs(logs);
-  return newLog;
-}
-
-// 保存日志
-function saveLogs(logs) {
-  return writeJSON(LOGS_FILE, logs);
+  return data;
 }
 
 // ============ 设置操作 ============
 
-// 获取所有设置
-function getSettings() {
-  return readJSON(SETTINGS_FILE, {});
-}
-
 // 获取设置值
-function getSetting(key) {
-  const settings = getSettings();
-  return settings[key];
+async function getSetting(key) {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .single();
+  
+  if (error) {
+    if (error.code !== 'PGRST116') {
+      console.error('获取设置失败:', error);
+    }
+    return null;
+  }
+  
+  return data.value;
 }
 
 // 保存设置
-function saveSetting(key, value) {
-  const settings = getSettings();
-  settings[key] = value;
-  return writeJSON(SETTINGS_FILE, settings);
-}
-
-// 初始化默认设置
-function initSettings() {
-  const settings = getSettings();
-  if (!settings.admin_password) {
-    settings.admin_password = 'admin123';
-    writeJSON(SETTINGS_FILE, settings);
+async function saveSetting(key, value) {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key, value }, { onConflict: 'key' });
+  
+  if (error) {
+    console.error('保存设置失败:', error);
+    throw error;
   }
+  
+  return true;
 }
 
 // ============ 初始化 ============
 
-// 初始化数据库（创建示例数据）
-function initDatabase() {
-  console.log('正在初始化数据库...');
+// 初始化数据库（检查是否有默认数据）
+async function initDatabase() {
+  console.log('正在检查数据库...');
   
-  // 初始化设置
-  initSettings();
-  console.log('✓ 设置已初始化');
-  
-  // 检查是否有示例口令，如果没有则创建
-  const passwords = getPasswords();
-  if (passwords.length === 0) {
-    addPassword({ name: '测试口令1', password: 'test001', is_active: 1 });
-    addPassword({ name: '测试口令2', password: 'test002', is_active: 1 });
-    console.log('✓ 示例口令已创建');
+  try {
+    // 检查是否有口令
+    const passwords = await getPasswords();
+    
+    if (passwords.length === 0) {
+      console.log('创建默认口令...');
+      await addPassword({ name: '测试口令1', password: 'test001', is_active: 1 });
+      await addPassword({ name: '测试口令2', password: 'test002', is_active: 1 });
+      console.log('✓ 默认口令已创建');
+    }
+    
+    // 检查是否有管理员密码设置
+    const adminPassword = await getSetting('admin_password');
+    if (!adminPassword) {
+      console.log('创建默认管理员密码...');
+      await saveSetting('admin_password', 'admin123');
+      console.log('✓ 默认管理员密码已创建');
+    }
+    
+    console.log('数据库检查完成');
+  } catch (err) {
+    console.error('数据库初始化失败:', err);
+    console.log('提示：请确保 Supabase 表已创建，且 RLS 已禁用或已配置策略');
   }
-  
-  console.log('数据库初始化完成');
 }
 
 module.exports = {
@@ -210,6 +273,7 @@ module.exports = {
   deletePassword,
   incrementPasswordUsage,
   getLogs,
+  getLogsCount,
   addLog,
   getSetting,
   saveSetting,

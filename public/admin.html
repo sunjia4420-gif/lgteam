@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>筛词神器 - 管理后台</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --highlight: #0f3460;
+  --accent: #e94560;
+  --text: #e0e0f0;
+  --text-muted: #8888aa;
+  --border: #2a2a4e;
+  --success: #1a6a2a;
+  --error: #8a1a1a;
+  --warning: #8a6a00;
+  --radius: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.admin-header {
+  background: linear-gradient(135deg, var(--highlight) 0%, var(--accent) 100%);
+  color: white;
+  padding: 16px 24px;
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.admin-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-header .header-right {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-header {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-header:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.main-layout {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.tab {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: var(--highlight);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  padding: 14px 20px;
+  background: linear-gradient(90deg, var(--highlight) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  background: var(--highlight);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tr:hover {
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-active {
+  background: var(--success);
+  color: white;
+}
+
+.badge-inactive {
+  background: var(--error);
+  color: white;
+}
+
+.btn {
+  background: var(--highlight);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-danger {
+  background: var(--error);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+  border: none;
+}
+
+.btn-success:hover {
+  opacity: 0.9;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-inner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.form-group input {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.pagination button {
+  background: var(--highlight);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination span {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 24px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border);
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+</style>
+</head>
+<body>
+
+<!-- 管理员登录页 -->
+<div id="loginPage" class="login-container">
+  <div class="login-card">
+    <h2>🔐 管理后台登录</h2>
+    <div class="error-message" id="adminLoginError" style="display:none; background:var(--error); color:white; padding:12px; border-radius:8px; margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label>管理员密码</label>
+      <input type="password" id="adminPassword" placeholder="请输入管理员密码" autofocus onkeypress="if(event.key==='Enter') adminLogin()">
+    </div>
+    <button class="btn btn-success" style="width:100%; padding:12px;" onclick="adminLogin()">登录</button>
+    <div style="text-align:center; margin-top:16px;">
+      <a href="/login" style="color:var(--text-muted); font-size:13px;">返回用户登录</a>
+    </div>
+  </div>
+</div>
+
+<!-- 管理后台主界面 -->
+<div id="adminPage" style="display:none;">
+  <header class="admin-header">
+    <div class="header-left">
+      <span>⚙️ 筛词神器 - 管理后台</span>
+    </div>
+    <div class="header-right">
+      <button class="btn-header" onclick="logout()">退出登录</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- 标签页导航 -->
+    <div class="tabs">
+      <div class="tab active" data-tab="logs" onclick="switchTab('logs')">📊 访问日志</div>
+      <div class="tab" data-tab="passwords" onclick="switchTab('passwords')">🔑 口令管理</div>
+      <div class="tab" data-tab="settings" onclick="switchTab('settings')">⚙️ 系统设置</div>
+    </div>
+
+    <!-- 访问日志 -->
+    <div id="tab-logs" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <span>访问日志</span>
+          <span class="badge badge-active" id="logCount">0 条</span>
+        </div>
+        <div class="card-body">
+          <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+            <label style="font-size: 13px; color: var(--text-muted);">显示条数:</label>
+            <select id="logLimit" onchange="loadLogs()" style="background:var(--bg); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:8px;">
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+            </select>
+            <button class="btn" onclick="loadLogs()">🔄 刷新</button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table id="logsTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>口令名称</th>
+                  <th>IP地址</th>
+                  <th>浏览器</th>
+                  <th>访问时间</th>
+                </tr>
+              </thead>
+              <tbody id="logsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 口令管理 -->
+    <div id="tab-passwords" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span>口令列表</span>
+          <button class="btn btn-success" onclick="openPasswordModal()">+ 新建口令</button>
+        </div>
+        <div class="card-body">
+          <div style="overflow-x: auto;">
+            <table id="passwordsTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>名称</th>
+                  <th>口令</th>
+                  <th>使用次数</th>
+                  <th>最大次数</th>
+                  <th>过期时间</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="passwordsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 系统设置 -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span>系统设置</span>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>管理员密码</label>
+            <input type="password" id="newAdminPassword" placeholder="输入新的管理员密码">
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">留空表示不修改</div>
+          </div>
+          <button class="btn btn-success" onclick="updateSettings()">保存设置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新建/编辑口令弹窗 -->
+<div id="passwordModal" class="modal">
+  <div class="modal-inner">
+    <div class="modal-header">
+      <h3 id="passwordModalTitle">新建口令</h3>
+      <button class="btn" onclick="closePasswordModal()">关闭</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editPasswordId">
+      <div class="form-group">
+        <label>名称 *</label>
+        <input type="text" id="passwordName" placeholder="例如: 测试组、张三">
+      </div>
+      <div class="form-group">
+        <label>口令 *</label>
+        <input type="text" id="passwordValue" placeholder="例如: test001">
+      </div>
+      <div class="form-group">
+        <label>过期时间（可选）</label>
+        <input type="datetime-local" id="passwordExpires">
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">留空表示永不过期</div>
+      </div>
+      <div class="form-group">
+        <label>最大使用次数（可选）</label>
+        <input type="number" id="passwordMaxUses" placeholder="留空表示无限制" min="1">
+      </div>
+      <div class="form-group">
+        <label>状态</label>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+          <label class="switch">
+            <input type="checkbox" id="passwordActive" checked onchange="document.getElementById('passwordActiveLabel').textContent = this.checked ? '启用' : '停用'">
+            <span class="slider"></span>
+          </label>
+          <span id="passwordActiveLabel">启用</span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" onclick="closePasswordModal()">取消</button>
+        <button class="btn btn-success" onclick="savePassword()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 检查管理员登录状态
+window.addEventListener('load', async () => {
+  try {
+    const response = await fetch('/api/admin/check');
+    const data = await response.json();
+    if (data.success) {
+      showAdminPage();
+      loadLogs();
+      loadPasswords();
+    } else {
+      showLoginPage();
+    }
+  } catch (err) {
+    showLoginPage();
+  }
+});
+
+function showLoginPage() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('adminPage').style.display = 'none';
+}
+
+function showAdminPage() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('adminPage').style.display = 'block';
+}
+
+async function adminLogin() {
+  const password = document.getElementById('adminPassword').value.trim();
+  const errorDiv = document.getElementById('adminLoginError');
+  
+  if (!password) {
+    errorDiv.textContent = '请输入管理员密码';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showAdminPage();
+      loadLogs();
+      loadPasswords();
+    } else {
+      errorDiv.textContent = data.message || '登录失败';
+      errorDiv.style.display = 'block';
+    }
+  } catch (err) {
+    errorDiv.textContent = '网络错误';
+    errorDiv.style.display = 'block';
+  }
+}
+
+function logout() {
+  fetch('/api/admin/login', { method: 'DELETE' }).then(() => {
+    window.location.href = '/admin';
+  });
+}
+
+// 标签页切换
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+  
+  // 切换到对应标签时加载数据
+  if (tabName === 'passwords') loadPasswords();
+  if (tabName === 'logs') loadLogs();
+}
+
+// 加载访问日志
+async function loadLogs() {
+  const limit = document.getElementById('logLimit').value;
+  
+  try {
+    const response = await fetch(`/api/admin/logs?limit=${limit}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('logCount').textContent = `${data.total} 条`;
+      const tbody = document.getElementById('logsBody');
+      tbody.innerHTML = '';
+      
+      if (data.logs.length === 0) {
+        tbody.innerHTML('<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:40px;">暂无访问记录</td></tr>');
+      } else {
+        data.logs.forEach(log => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${log.id}</td>
+            <td>${log.password_name || '-'}</td>
+            <td>${log.ip_address || '-'}</td>
+            <td title="${log.user_agent || ''}" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${log.user_agent || '-'}</td>
+            <td>${formatDateTime(log.accessed_at)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('加载日志失败:', err);
+  }
+}
+
+// 加载口令列表
+async function loadPasswords() {
+  try {
+    const response = await fetch('/api/admin/passwords');
+    const data = await response.json();
+    
+    if (data.success) {
+      const tbody = document.getElementById('passwordsBody');
+      tbody.innerHTML = '';
+      
+      if (data.passwords.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:40px;">暂无口令，点击"新建口令"添加</td></tr>';
+      } else {
+        data.passwords.forEach(pwd => {
+          const tr = document.createElement('tr');
+          const statusBadge = pwd.is_active ? 
+            '<span class="badge badge-active">启用</span>' : 
+            '<span class="badge badge-inactive">停用</span>';
+          
+          tr.innerHTML = `
+            <td>${pwd.id}</td>
+            <td>${pwd.name}</td>
+            <td><code style="background:var(--bg); padding:4px 8px; border-radius:4px;">${pwd.password}</code></td>
+            <td>${pwd.used_count || 0}</td>
+            <td>${pwd.max_uses || '无限制'}</td>
+            <td>${pwd.expires_at ? formatDateTime(pwd.expires_at) : '永不过期'}</td>
+            <td>${statusBadge}</td>
+            <td>${formatDateTime(pwd.created_at)}</td>
+            <td>
+              <button class="btn" onclick="editPassword(${pwd.id})" style="margin-right:6px;">编辑</button>
+              <button class="btn btn-danger" onclick="deletePassword(${pwd.id}, '${pwd.name}')">删除</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('加载口令失败:', err);
+  }
+}
+
+// 打开口令弹窗（新建）
+function openPasswordModal() {
+  document.getElementById('passwordModalTitle').textContent = '新建口令';
+  document.getElementById('editPasswordId').value = '';
+  document.getElementById('passwordName').value = '';
+  document.getElementById('passwordValue').value = '';
+  document.getElementById('passwordExpires').value = '';
+  document.getElementById('passwordMaxUses').value = '';
+  document.getElementById('passwordActive').checked = true;
+  document.getElementById('passwordActiveLabel').textContent = '启用';
+  document.getElementById('passwordModal').classList.add('show');
+}
+
+// 关闭口令弹窗
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.remove('show');
+}
+
+// 编辑口令
+async function editPassword(id) {
+  try {
+    const response = await fetch('/api/admin/passwords');
+    const data = await response.json();
+    
+    if (data.success) {
+      const pwd = data.passwords.find(p => p.id === id);
+      if (pwd) {
+        document.getElementById('passwordModalTitle').textContent = '编辑口令';
+        document.getElementById('editPasswordId').value = pwd.id;
+        document.getElementById('passwordName').value = pwd.name;
+        document.getElementById('passwordValue').value = pwd.password;
+        document.getElementById('passwordExpires').value = pwd.expires_at ? pwd.expires_at.slice(0, 16) : '';
+        document.getElementById('passwordMaxUses').value = pwd.max_uses || '';
+        document.getElementById('passwordActive').checked = pwd.is_active === 1;
+        document.getElementById('passwordActiveLabel').textContent = pwd.is_active === 1 ? '启用' : '停用';
+        document.getElementById('passwordModal').classList.add('show');
+      }
+    }
+  } catch (err) {
+    console.error('获取口令信息失败:', err);
+  }
+}
+
+// 保存口令（新建或更新）
+async function savePassword() {
+  const id = document.getElementById('editPasswordId').value;
+  const name = document.getElementById('passwordName').value.trim();
+  const password = document.getElementById('passwordValue').value.trim();
+  const expiresAt = document.getElementById('passwordExpires').value;
+  const maxUses = document.getElementById('passwordMaxUses').value;
+  const isActive = document.getElementById('passwordActive').checked;
+  
+  if (!name || !password) {
+    alert('名称和口令不能为空');
+    return;
+  }
+  
+  const url = id ? `/api/admin/passwords/${id}` : '/api/admin/passwords';
+  const method = id ? 'PUT' : 'POST';
+  const body = id ? 
+    { name, password, expires_at: expiresAt || null, max_uses: maxUses || null, is_active: isActive } :
+    { name, password, expires_at: expiresAt || null, max_uses: maxUses || null };
+  
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      closePasswordModal();
+      loadPasswords();
+    } else {
+      alert(data.message || '保存失败');
+    }
+  } catch (err) {
+    alert('保存失败: ' + err.message);
+  }
+}
+
+// 删除口令
+async function deletePassword(id, name) {
+  if (!confirm(`确定要删除口令"${name}"吗？`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/admin/passwords/${id}`, {
+      method: 'DELETE'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      loadPasswords();
+    } else {
+      alert(data.message || '删除失败');
+    }
+  } catch (err) {
+    alert('删除失败: ' + err.message);
+  }
+}
+
+// 更新系统设置
+async function updateSettings() {
+  const newPassword = document.getElementById('newAdminPassword').value.trim();
+  
+  if (!newPassword) {
+    alert('请输入新的管理员密码');
+    return;
+  }
+  
+  if (!confirm('确定要修改管理员密码吗？')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'admin_password', value: newPassword })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('密码修改成功');
+      document.getElementById('newAdminPassword').value = '';
+    } else {
+      alert(data.message || '修改失败');
+    }
+  } catch (err) {
+    alert('修改失败: ' + err.message);
+  }
+}
+
+// 格式化日期时间
+function formatDateTime(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-CN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+</script>
+
+</body>
+</html>

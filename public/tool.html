@@ -1,0 +1,6386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>筛词神器 v2.0</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --highlight: #0f3460;
+  --accent: #e94560;
+  --text: #e0e0f0;
+  --text-muted: #8888aa;
+  --border: #2a2a4e;
+  --score1: #555577;
+  --score2: #1a4a8a;
+  --score3: #1a6a2a;
+  --score4: #8a4a00;
+  --score5: #8a1a1a;
+  --radius: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--highlight) 0%, var(--accent) 100%);
+  color: white;
+  padding: 16px 24px;
+  font-size: 20px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+#appTitle {
+  outline: none;
+  cursor: text;
+  min-width: 120px;
+  display: inline-block;
+  max-width: 80vw;
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background 0.2s;
+  padding: 2px 6px;
+  margin: -2px -6px;
+}
+#appTitle:hover { background: rgba(255,255,255,0.1); }
+#appTitle:focus { background: rgba(255,255,255,0.15); box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.top-row {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+}
+
+.bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* 修改1：新增分区行样式 - 三个分区卡片一行三列并列 */
+.partition-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 10px 16px;
+  background: linear-gradient(90deg, var(--highlight) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+}
+
+.card-scroll {
+  display: flex;
+  flex-direction: column;
+}
+
+.resize-handle {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.resize-handle:hover {
+  background: var(--accent);
+}
+
+.badge {
+  background: var(--accent);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.btn {
+  background: var(--highlight);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+textarea {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  font-size: 13px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input[type="text"],
+input[type="number"] {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  background: var(--highlight);
+  color: var(--text);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chip:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.progress-wrap {
+  display: none;
+  margin-top: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 20px;
+  background: var(--bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--highlight));
+  border-radius: 10px;
+  transition: width 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  background: var(--highlight);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:hover {
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.pagination button {
+  background: var(--highlight);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 品牌词库和使用说明的模态框共用样式 */
+.brand-lib-modal, .help-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.brand-lib-modal.show, .help-modal.show {
+  display: flex;
+}
+
+.brand-lib-modal-inner, .help-modal-inner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-lib-header, .help-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.brand-lib-body, .help-body {
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.brand-lib-body textarea {
+  flex: 1;
+  min-height: 400px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.help-body {
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-y: auto;
+}
+
+.help-body h3 {
+  color: var(--accent);
+  margin: 16px 0 8px 0;
+}
+
+.help-body ul {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.help-body li {
+  margin-bottom: 6px;
+}
+
+.brand-lib-toolbar {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#tableContainer {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.score-1 { background: var(--score1); color: white; }
+.score-2 { background: var(--score2); color: white; }
+.score-3 { background: var(--score3); color: white; }
+.score-4 { background: var(--score4); color: white; }
+.score-5 { background: var(--score5); color: white; }
+
+/* 全得分类型标签样式 */
+.bonus-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.bonus-clean { background: #1a6a2a; color: white; }  /* 干净词 - 绿色 */
+.bonus-full { background: #0a3a7a; color: white; }  /* 全得分 - 蓝色 */
+.bonus-none { background: #555577; color: white; }  /* 不加分 - 灰色 */
+
+/* 跳过词编辑弹窗样式 */
+.skip-edit-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+.skip-edit-modal.active {
+  display: flex;
+}
+.skip-edit-modal-inner {
+  background: var(--card);
+  border-radius: 12px;
+  width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.skip-edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.skip-edit-body {
+  padding: 12px;
+}
+.skip-edit-body textarea {
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.skip-edit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Bonus卡片跳过词选项样式 */
+.bonus-skip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.bonus-skip-item input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--highlight);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bonus-skip-item .btn-sm {
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-left: auto;
+}
+</style>
+</head>
+<body>
+<script>
+// 身份验证 - 检查用户是否已登录
+(async function() {
+  try {
+    const response = await fetch('/api/check-auth');
+    const data = await response.json();
+    if (!data.success) {
+      window.location.href = '/login';
+    }
+  } catch (err) {
+    window.location.href = '/login';
+  }
+})();
+</script>
+
+<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v2.0</div></header>
+
+<main class="main-layout">
+  <div class="top-row">
+    <div class="left-col">
+      <!-- 卡片1：词组库导入 -->
+      <div class="card" id="phraseCard">
+        <div class="card-header">
+          <span>📂 词组库</span>
+          <span class="badge" id="phraseCount">0</span>
+          <button class="btn" onclick="document.getElementById('fileInput').click()">📄 上传TXT</button>
+          <button class="btn" onclick="clearPhrases()">清空</button>
+          <input type="file" id="fileInput" accept=".txt" style="display:none" onchange="handleFileUpload(event)">
+        </div>
+        <div class="resize-handle" data-target="phraseCardBody"></div>
+        <div class="card-body card-scroll" id="phraseCardBody">
+          <textarea id="phraseInput" rows="6" placeholder="请输入词组库，每行一个词组&#10;例如：&#10;plus size dress&#10;sexy cocktail dress&#10;nike running shoes"></textarea>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+            <button class="btn-primary" onclick="parseAndPreviewPhrases()">解析词组 →</button>
+          </div>
+          <div id="phrasePreview" class="preview-chips"></div>
+        </div>
+      </div>
+
+      <!-- 卡片2：计算区 -->
+      <div class="card" id="calcCard">
+        <div class="card-header">
+          <span>⚙️ 计算区</span>
+          <button class="btn" onclick="startCalculation()">开始计算</button>
+          <button class="btn" onclick="stopCalculation()">停止</button>
+          <button class="btn" onclick="exportCSV()">📥 导出CSV</button>
+        </div>
+        <div class="card-body" id="calcCardBody">
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+              <input type="checkbox" id="simplifiedMode" checked>
+              <span>⚡ 单词得分模式</span>
+            </label>
+            <!-- 改动6：新增「词区得分模式」复选框 -->
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+              <input type="checkbox" id="simplifiedScoring">
+              <span>✂️ 词区得分模式</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+              <input type="checkbox" id="enableBrandDetect" checked>
+              <span>品牌检测</span>
+            </label>
+          </div>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+              已处理: <span id="processedCount">0</span> / <span id="totalCount">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 卡片3：结果表格 -->
+      <div class="card" id="resultCard">
+        <div class="card-header">
+          <span>📊 评分结果</span>
+          <span class="badge" id="resultCount">0</span>
+        </div>
+        <div class="card-body" id="resultCardBody">
+          <div id="tableContainer"></div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧栏 -->
+    <div class="right-col">
+      <!-- 卡片4：品牌词库 -->
+      <div class="card" id="brandCard">
+        <div class="card-header">
+          <span>🏷️ 品牌词库</span>
+          <span class="badge" id="brandCount">0</span>
+          <button class="btn" onclick="openBrandLibModal()">编辑</button>
+        </div>
+        <div class="card-body" id="brandCardBody" style="max-height:200px;">
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+            内置品牌库已加载，可点击"编辑"查看或添加品牌
+          </div>
+          <div id="brandPreview" class="preview-chips"></div>
+        </div>
+      </div>
+
+      <!-- 改动4：使用说明按钮（替代原来的使用说明卡片） -->
+      <button class="btn" onclick="openHelpModal()" style="width:100%;margin-bottom:12px;">💡 使用说明</button>
+
+      <!-- 改动3：全得分判定设置卡片 -->
+      <div class="card" id="bonusSettingsCard">
+        <div class="card-header">
+          <span>🎯 全得分判定设置</span>
+        </div>
+        <div class="card-body">
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipPrep" checked>
+            <span>介词/停用词不参与全得分判定</span>
+            <button class="btn btn-sm" onclick="openSkipEditModal('prep')">编辑</button>
+          </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipColor" checked>
+            <span>颜色词不参与全得分判定</span>
+            <button class="btn btn-sm" onclick="openSkipEditModal('color')">编辑</button>
+          </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipSize" checked>
+            <span>尺码词不参与全得分判定</span>
+            <button class="btn btn-sm" onclick="openSkipEditModal('size')">编辑</button>
+          </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipNumber" checked>
+            <span>纯数字/符号不参与全得分判定</span>
+            <span style="font-size:11px;color:var(--text-muted);">（不可编辑）</span>
+          </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipCustomBrand" checked>
+            <span>自定义品牌词不参与全得分判定</span>
+            <span style="font-size:11px;color:var(--text-muted);">（在品牌词区域编辑）</span>
+          </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipBuiltinBrand" checked>
+            <span>内置品牌词不参与全得分判定</span>
+            <span style="font-size:11px;color:var(--text-muted);">（在品牌词库编辑）</span>
+          </div>
+          <div style="margin-top:8px;">
+            <label>全得分加分数值：
+              <input type="number" id="bonusAmount" value="20" min="0" max="99" style="width:60px;">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改1：底部行 - 三个分区卡片用新的partition-row包裹 -->
+  <div class="partition-row">
+    <!-- 卡片6：品类词（原1分区） -->
+    <div class="card" id="p1Card">
+      <div class="card-header">
+        <span>🟦 品类词</span>
+        <span class="badge" id="p1Count">0</span>
+        <!-- 修改3：增加可自定义的分区分值设定 -->
+        <label style="font-size:12px;margin-left:8px;">
+          每词得分:<input type="number" id="p1Score" value="3" min="1" max="5" style="width:36px;padding:2px 4px;font-size:12px;border-radius:4px;border:1px solid #ccc;">
+        </label>
+      </div>
+      <div class="card-body" id="p1CardBody">
+        <textarea id="p1Input" rows="4" placeholder="输入品类词词库（每行一个词）"></textarea>
+      </div>
+    </div>
+
+    <!-- 卡片7：强相关（原2分区） -->
+    <div class="card" id="p2Card">
+      <div class="card-header">
+        <span>🟩 强相关</span>
+        <span class="badge" id="p2Count">0</span>
+        <!-- 修改3：增加可自定义的分区分值设定 -->
+        <label style="font-size:12px;margin-left:8px;">
+          每词得分:<input type="number" id="p2Score" value="2" min="1" max="5" style="width:36px;padding:2px 4px;font-size:12px;border-radius:4px;border:1px solid #ccc;">
+        </label>
+      </div>
+      <div class="card-body" id="p2CardBody">
+        <textarea id="p2Input" rows="4" placeholder="输入强相关词库（每行一个词）"></textarea>
+      </div>
+    </div>
+
+    <!-- 卡片8：弱相关（原3分区） -->
+    <div class="card" id="p3Card">
+      <div class="card-header">
+        <span>🟨 弱相关</span>
+        <span class="badge" id="p3Count">0</span>
+        <!-- 修改3：增加可自定义的分区分值设定 -->
+        <label style="font-size:12px;margin-left:8px;">
+          每词得分:<input type="number" id="p3Score" value="1" min="1" max="5" style="width:36px;padding:2px 4px;font-size:12px;border-radius:4px;border:1px solid #ccc;">
+        </label>
+      </div>
+      <div class="card-body" id="p3CardBody">
+        <textarea id="p3Input" rows="4" placeholder="输入弱相关词库（每行一个词）"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部行：品牌词过滤（保持单列布局，因为使用说明已改为按钮） -->
+  <div style="display:grid; grid-template-columns: 1fr; gap: 16px;">
+    <!-- 卡片9：品牌词过滤 -->
+    <div class="card">
+      <div class="card-header">
+        <span>🔍 品牌词过滤</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size:12px; color:var(--text-muted);">
+          品牌检测功能已在计算区中启用，勾选"品牌检测"即可自动识别词组中的品牌词。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 品牌词库编辑模态框 -->
+  <div class="brand-lib-modal" id="brandLibModal">
+    <div class="brand-lib-modal-inner">
+      <div class="brand-lib-header">
+        <span style="font-size:16px; font-weight:600;">品牌词库编辑</span>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" onclick="dedupeBrandLib()">🔄 去重</button>
+          <button class="btn" onclick="saveBrandLib()">保存</button>
+          <button class="btn" onclick="restoreBrandLib()">恢复默认</button>
+          <button class="btn" style="background:#8a1a1a; color:white; border:none;" onclick="closeBrandLibModal()">关闭</button>
+        </div>
+      </div>
+      <div class="brand-lib-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <input type="text" id="brandSearchInput" placeholder="输入关键词查找品牌..." oninput="searchBrandLib()" style="flex:1; min-width:200px; padding:6px 10px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:13px; outline:none;" />
+          <span id="brandSearchResult" style="font-size:12px; color:var(--text-muted); white-space:nowrap;"></span>
+          <button class="btn btn-sm" onclick="clearBrandSearch()" title="清除搜索并高亮">清除</button>
+        </div>
+        <textarea id="brandLibEditor" placeholder="每行一个品牌名"></textarea>
+        <div class="brand-lib-toolbar">
+          <span id="brandLibCount">0 个品牌</span>
+          <span>修改后点击"保存"生效</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 改动4：使用说明模态框 -->
+  <div class="help-modal" id="helpModal">
+    <div class="help-modal-inner">
+      <div class="help-header">
+        <span style="font-size:16px; font-weight:600;">💡 使用说明</span>
+        <button class="btn" style="background:#8a1a1a; color:white; border:none;" onclick="closeHelpModal()">关闭</button>
+      </div>
+      <div class="help-body">
+        <h3>评分规则说明</h3>
+        <ul>
+          <li><strong>品类词</strong>：核心产品类别词汇，分值最高（默认3分）</li>
+          <li><strong>强相关</strong>：与产品强相关的修饰词，分值中等（默认2分）</li>
+          <li><strong>弱相关</strong>：与产品弱相关的词汇，分值较低（默认1分）</li>
+          <li><strong>品牌词</strong>：自动识别品牌词库中的品牌，仅标记不加分</li>
+        </ul>
+
+        <h3>全得分判定逻辑</h3>
+        <ul>
+          <li><strong>干净词</strong>：词组仅含得分词（品类词/强相关/弱相关），且包含至少一个品类词，无跳过词 → 加全得分分数</li>
+          <li><strong>全得分</strong>：含得分词，但同时含跳过词（介词/颜色/尺码/品牌词等） → 加全得分分数</li>
+          <li><strong>不加分</strong>：没有强相关词且没有品类词 → 基础分为1</li>
+        </ul>
+
+        <h3>词组分类定义</h3>
+        <ul>
+          <li><span class="bonus-type-badge bonus-clean">干净词</span>：仅包含得分词（品类词/强相关/弱相关），且包含至少一个品类词，无任何跳过词和品牌词</li>
+          <li><span class="bonus-type-badge bonus-full">全得分</span>：包含得分词，但也包含跳过词（介词/颜色/尺码/品牌词等）</li>
+          <li><span class="bonus-type-badge bonus-none">不加分</span>：没有强相关词且没有品类词</li>
+        </ul>
+
+        <h3>词区得分模式</h3>
+        <ul>
+          <li>启用后，同分区内多个相同分区的词只算一次分</li>
+          <li>例如：品类词分区匹配到 dress 和 skirt 两个词 → 只加一次品类词分值</li>
+          <li>与单词得分模式相互独立，可单独勾选</li>
+        </ul>
+
+        <h3>快速开始</h3>
+        <ul>
+          <li>在"词组库"中输入或上传词组</li>
+          <li>点击下方"解析词组"预览</li>
+          <li>配置各分区的词库</li>
+          <li>点击"开始计算"进行评分</li>
+          <li>可选：启用全得分判定、词区得分模式</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 跳过词编辑模态框 -->
+  <div class="skip-edit-modal" id="skipEditModal">
+    <div class="skip-edit-modal-inner">
+      <div class="skip-edit-header">
+        <span id="skipEditTitle">编辑跳过词</span>
+        <div>
+          <button class="btn" onclick="saveSkipEdit()">保存</button>
+          <button class="btn" onclick="closeSkipEditModal()">关闭</button>
+        </div>
+      </div>
+      <div class="skip-edit-body">
+        <textarea id="skipEditTextarea" rows="10" placeholder="每行一个词"></textarea>
+        <div class="skip-edit-toolbar">
+          <span id="skipEditCount">0 个词</span>
+          <button class="btn btn-sm" onclick="dedupeSkipEdit()">去重</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ========= 跳过词集合（按类别拆分，便于用户控制） =========
+const PREP_SET = Object.create(null);
+const PREPS = [
+  'a','an','the','in','on','at','to','for','with','of','from','by','about','into','through','during','before','after','above','below','between','under','over','and','or','but','as','off','up','out','down','via','without','underneath','upon','toward','towards','among','amongst','beside','besides','except','excluding','including','regarding','concerning','despite','plus','minus','like','near','past','per','since','till','until','versus','vs'
+];
+PREPS.forEach(w => { PREP_SET[w] = true; });
+
+const COLOR_SET = Object.create(null);
+const COLORS = [
+  'red','blue','green','yellow','black','white','pink','purple','orange','brown','gray','grey','navy','beige','cream','ivory','khaki','teal','maroon','olive','coral','mint','lavender','gold','silver','bronze','clear','transparent','multicolor','rainbow'
+];
+COLORS.forEach(w => { COLOR_SET[w] = true; });
+
+const SIZE_SET = Object.create(null);
+const SIZES = [
+  'xs','s','m','l','xl','xxl','xxxl','2xl','3xl','4xl','5xl','small','medium','large','xsmall','xlarge','xxlarge','petite','plus','tall','short','regular'
+];
+SIZES.forEach(w => { SIZE_SET[w] = true; });
+
+// 判断字符串是否纯数字或纯符号
+function isNumberOrSymbolOnly(w) {
+  return /^[\d.,]+$/.test(w) || /^[^a-zA-Z]+$/.test(w);
+}
+
+// ========= 跳过词编辑相关函数 =========
+let currentSkipCategory = ''; // 'prep' | 'color' | 'size'
+
+function openSkipEditModal(category) {
+  currentSkipCategory = category;
+  const titles = { prep: '编辑介词/停用词', color: '编辑颜色词', size: '编辑尺码词' };
+  document.getElementById('skipEditTitle').textContent = titles[category] || '编辑跳过词';
+  
+  // 从 localStorage 或内置词库加载
+  const key = `wordScorer_skip_${category}`;
+  let words = localStorage.getItem(key);
+  if (!words) {
+    // 使用内置默认词库
+    if (category === 'prep') words = PREPS.join('\n');
+    else if (category === 'color') words = COLORS.join('\n');
+    else if (category === 'size') words = SIZES.join('\n');
+  }
+  document.getElementById('skipEditTextarea').value = words;
+  updateSkipEditCount();
+  document.getElementById('skipEditModal').classList.add('active');
+}
+
+function closeSkipEditModal() {
+  document.getElementById('skipEditModal').classList.remove('active');
+}
+
+function saveSkipEdit() {
+  const key = `wordScorer_skip_${currentSkipCategory}`;
+  const val = document.getElementById('skipEditTextarea').value;
+  localStorage.setItem(key, val);
+  // 同步更新对应的 Set
+  updateSkipSet(currentSkipCategory);
+  closeSkipEditModal();
+}
+
+function dedupeSkipEdit() {
+  const ta = document.getElementById('skipEditTextarea');
+  const lines = ta.value.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
+  const unique = [...new Set(lines)];
+  ta.value = unique.join('\n');
+  updateSkipEditCount();
+}
+
+function updateSkipEditCount() {
+  const val = document.getElementById('skipEditTextarea').value;
+  const count = val.split('\n').filter(w => w.trim()).length;
+  document.getElementById('skipEditCount').textContent = count + ' 个词';
+}
+
+function updateSkipSet(category) {
+  const key = `wordScorer_skip_${category}`;
+  const saved = localStorage.getItem(key);
+  let words = [];
+  if (saved) {
+    words = saved.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
+  } else {
+    if (category === 'prep') words = [...PREPS];
+    else if (category === 'color') words = [...COLORS];
+    else if (category === 'size') words = [...SIZES];
+  }
+  // 更新对应的 Set
+  if (category === 'prep') {
+    for (const k in PREP_SET) delete PREP_SET[k];
+    words.forEach(w => { PREP_SET[w] = true; });
+  } else if (category === 'color') {
+    for (const k in COLOR_SET) delete COLOR_SET[k];
+    words.forEach(w => { COLOR_SET[w] = true; });
+  } else if (category === 'size') {
+    for (const k in SIZE_SET) delete SIZE_SET[k];
+    words.forEach(w => { SIZE_SET[w] = true; });
+  }
+}
+
+// 初始化时调用 updateSkipSet 加载用户自定义词库
+function initSkipSets() {
+  updateSkipSet('prep');
+  updateSkipSet('color');
+  updateSkipSet('size');
+}
+
+// ========= 品牌词库（3909+品牌） =========
+// 注意：gap 品牌已确保在列表中
+// 使用 let 而不是 const，以便在保存品牌词库时能够更新
+let BRAND_TEXT = `&collar
+13 going on 30
+1791's lady
+206 collective
+21kids
+24seven comfort apparel
+27 dresses
+2bunnies
+32 degrees
+361
+49ers
+4ufit
+7 eleven
+7 for all mankind
+72styles
+76
+7dayotter
+7fairy
+90 degree by reflex
+99timoro
+a arfar
+a bathing ape
+a&f
+a-wintage
+a. byer
+a.l.c.
+aaliyah
+ababalaya
+ababoon
+abaowedding
+abarth
+abbence
+abcwax
+abercrombie
+aberyamee
+abetteric
+abingoo
+abkylie
+abletree
+abociw
+absolut
+absyore
+abyovrt
+acana
+accelera
+ace hardware
+acecharming
+acelitt
+acelyn
+acer
+acevog
+achieer
+achilles
+acne studios
+acosap
+acrelis
+acsuss
+actions
+active products
+actleis
+acura
+adam baker
+adar uniforms
+adele
+adidas
+adidas kids swim
+adidas mens swim
+adidas originals
+adidas swim
+adidas swimwear
+adisputent
+adobe
+adoeren
+adogirl
+adome
+adorejoy
+adriana degreas
+adriana degreas swim
+adrianna papell
+aduchesscos
+adugen origei
+adulove
+advance auto parts
+adventures
+aelfric
+aepebo
+aerie
+aeropress
+aerosoles
+afavom
+afeidd
+affin
+affirm
+affliction
+afibi
+afitne
+afrilisco
+afrm
+afterpay
+ag jeans
+agip
+agmibrelr
+agnes orinda
+agolde
+agqt
+agseem
+ai'mage
+aia
+aibearty
+aifer
+aifoto
+aig
+aigeman
+aigle
+aihko
+ailsi
+aimaopao
+aimcoo
+aimecha
+aimik
+aimina
+aimjchld
+ainclu
+ainiel
+ainuno
+aiopr
+airpods
+airzeal
+aisize
+aiswi
+aiwufly
+ajisai
+akarise
+akihoo
+akivide
+akmipoem
+alamo
+alaow
+alberto danelli
+albertsons
+alcea rosea
+aldi
+aldo
+alenda danmos
+alepo
+aleumdr
+alex evenings
+alex vando
+alexander mcqueen
+alexis
+alfa romeo
+alfabridal
+alfani
+alfeice
+alfred dunner
+alice + olivia
+alice and olivia swim
+alice in chains
+aligned
+alikey
+alimens & gentle
+alivila.y fashion
+all clad
+allandwell
+allegra k
+allegrace
+allen company
+allen edmonds
+alliance
+allianz
+allimy
+allstate
+allumk
+allwinner
+allytok
+aloodor
+alopcfwm
+alpha
+alpinestars
+alpo
+alsogo
+altar'd state
+altenzo
+altuzarra
+alvaq
+always
+alyweatry
+am clothes
+amafuur
+amali
+amanda uprichard
+amaxiu
+amazhiyu
+amazon
+amazon aware
+amazon basics
+amazon collection
+amazon elements
+amazon essentials
+amazon fresh
+amazon go
+amazon prime video
+ambank
+amd
+amdbel
+amegoya
+american apparel
+american eagle
+american family
+american trends
+amiliashp
+aminord
+amiri
+amlogic
+amlztr
+amnpolen
+amober
+amoena
+amoena swim
+amoretu
+amri
+amsale
+amscan
+amshibel
+amur
+amvora
+amzprint
+anarkali
+anchor books
+andie
+andie swim
+andrew tate
+anelekor
+angashion
+angbater
+angel fashions
+angela
+angelaicos
+angie
+anikuv
+aniywn
+anji
+ankick
+ankomina
+ankr
+anna
+anne cole
+anne klein
+annebouti
+annjo
+annycraft
+annystore
+anolon
+another chill
+anrabess
+anta
+antares
+anthropologie
+anti social social club
+antique style
+antminer
+antopmen
+aobute
+aohite
+aoiviss
+aokosor
+aolro
+aomei
+aomoni
+aooksmery
+aopwsrlyi
+aoteli
+aothso
+aoudery
+aoulaydo
+aox women
+aoxjox
+aoysky
+apc
+aphratti
+apollo
+aporake
+appalachian valley
+apple
+apple music
+apple tv plus
+aprsfn
+aptro
+aqua eve
+aqua eve swim
+aqua green
+aqua sphere
+aqua sphere swim
+aranoy
+arc'teryx leaf
+arco
+arcteryx
+arctix
+ardbeg
+arena
+arena kids
+arena rash guard
+argeousgor
+ariat
+ariel
+aritzia
+ariva
+arizona
+arkbird
+armani
+armani exchange
+armani swim
+armour
+armstrong
+aro lora
+arolina
+arospeed
+arplvf
+arrow
+arshiner
+art of creation
+artfish
+artfree
+article
+artmiss
+as rose rich
+ashen fane
+ashley furniture
+ashwini
+asics
+asolo
+asos
+asrock
+aston martin
+astr the label
+astylish
+asus
+asvivid
+ataiwee
+atamet
+athleta
+athleta swim
+athletic works
+atlas
+atoysoy
+attine
+attraco
+atturo
+aubig
+audate
+audi
+augday
+august sky
+auhegn
+auklamu
+aukmla
+aurefin
+aurgelmir
+aurola
+aurora
+auselily
+auslook
+austin
+authentics
+auto dynasty
+autogreen
+automet
+autozone
+avalanche
+avalon
+avanova
+avatar
+averitt
+avery hill
+avia
+aviator nation
+avidlove
+avis
+awaytr
+awear
+awibmk
+awoscut
+axa
+axesea
+axesea swim
+axupico
+ayalinggo
+aywa
+azhong
+aztec
+aéropostale
+b xtra boutique
+b2prity
+b2prity swim
+babalet
+babeyond
+baby alive
+baby amabc
+babyonline d.r.e.s.s.
+bacardi
+backgarden
+bad bunny
+badgley mischka
+badhub
+baerskin
+balanced co.
+baleaf
+balenciaga
+bali
+balkrishna
+balmain
+bamans
+bamboo
+banana republic
+bandeau
+banetteta
+bank islam
+bank rakyat
+baobab
+baohulu
+bape
+barbie
+barbour
+bardot
+bare necessities
+bare necessities swim
+barneys
+barry.wang
+barum
+barwa
+baseus
+basgute
+basysin
+bates
+bath & body works
+bather
+batman
+baufuuya
+bawilom
+baxlimek
+baynoyia
+bb dakota
+bbiqi
+bbonlinedress
+bbx lephsnt
+bcbgeneration
+bcbgmaxazria
+bdcoco
+bdwinz
+beach riot
+beach riot swim
+beachlunchlounge
+beachsissi
+beadchica
+beagimeg
+beams
+bearpaw
+bearsland
+beats
+beautiful giant
+beauty collector
+beautyin
+beautynee
+bebe
+becca
+bed bath & beyond
+bedsure
+bee darlin
+beierli
+beilite
+beimuc
+belaroi
+belidome
+bella barnett
+bella canvas
+belle
+belleville
+bellivera
+belongsci
+belshina
+beltox fine
+belugadesign
+ben davi
+ben sherman swim
+benancy
+benchmark basics
+beneful
+beninos
+bentley
+beotyshow
+berlioni
+berlune
+berrygo
+berydress
+berylove
+besserbay
+bestena
+bestgirl
+bestier
+bestisun
+betaven
+betsey
+betsy & adam
+betsy and adam
+bettecos
+beyond meat
+beyond yoga
+beyove
+bf goodrich
+bgfks
+bgirnuk
+bhd beauty
+bhldn
+bhmawsrt
+biayxms
+bidobibo
+bienzoe
+big dart
+big-on-sale
+bigpay
+bigpets
+biivrii
+bikini zone
+bikinx
+billabong
+billabong rash guard
+bingerlily
+binghuodao
+binienty
+binlowis
+binmer
+biostar
+birdwell
+birdwell beach britches
+birkenstock
+birla
+birw
+bishuige
+bisousox
+bitaly
+bitmain
+bitseacoco
+bitton
+biucly
+biyejit
+bj s
+bjdbus
+black diamond
+black halo
+black sabbath
+blackbutterfly
+blackhawk
+blawhee
+blencot
+bleoavre
+blessed
+blessed swim
+blessume
+bleu rod beattie
+blibean
+blidece
+blink 182
+blippi
+blissshow
+block
+bloggerlove
+blooming jelly
+blooming jelly swim
+bloomingdales
+blowfish
+blue adult
+blue basics
+blue buffalo
+blue freedom
+blue giant
+blue grain free
+blue healthy growth
+blue large breed
+blue life protection
+blue limited ingredient
+blue magic
+blue puppy
+blue senior
+blue sensitive stomach
+blue small breed
+blue weight control
+blue wilderness
+blueming
+bluetime
+bluewolfsea
+bluey
+blundstone
+bmjl
+bmw
+boao
+boardroomsocks
+bob marley
+bobbi
+boden
+boden swim
+bodhi talk
+bodum
+body glove
+body glove bathing suit
+body glove swim
+bodycon4u
+bogs
+bogurst
+boibokoko
+boksb
+bolensye
+bolero
+bolley joss
+bombas
+bond
+bonnie jean
+bonnlo
+bonobos fielder
+bonuci
+boohoo
+boojze
+boost
+borat
+border merchant
+boriflors
+born
+bosch
+bose
+boss
+boss swim
+boston
+bostonian
+bosvin
+bottega veneta
+bowanadacles
+bowmore
+boyiee
+bp
+bpurb
+brabic
+brandt
+brandy melville
+bratz
+braun
+breaking bad
+breezy lane
+breville
+brickline
+bridesmay
+bridgerton
+bridgestone
+bridgetone
+briggs new york
+bring
+brisira
+broadcom
+brooks brothers
+brother
+brother brother
+brovave
+browning
+bruno marc
+bsn
+bsubseach
+btfbm
+btgixsf
+bts
+bucuxe
+budget
+buenos ninos
+buffalo
+buffalo trace
+bugatti
+buitifo
+bulgari
+bulliant
+bulova
+burberry
+burton
+butterick
+buttoned down
+buttonmode
+buttzo
+bvlgari
+bycalvina - calvina costumes
+byd
+bydiva
+byinns
+bzb
+bzees
+c a
+c. wonder
+c.amour
+c.h robinson
+cabela's
+cadillac
+cailami
+caitefaso
+cakceatl
+califia farms
+california costume collections
+calipessa
+calphalon
+calto
+calvin kevin
+calvin klein
+calvin klein swim
+calvin klein underwear
+camdom
+camelbak
+camlinbo
+campbells
+canaan
+cani
+canidae
+canon
+cantonwalker
+cape clique
+capezio
+captain morgan
+captain underpants
+capuffy
+caracilia
+caretoo
+carhartt
+caribou
+carinthia
+carlisle
+carolina
+carprinass
+carters
+cartier
+carve designs
+carve designs swim
+caseys
+casio
+castor pollux
+castrol
+casual nights
+casuress
+cat
+cat & jack
+cat (caterpillar)
+caterpillar
+caudio
+cb2
+cbcbtwo
+ccisppal
+cdiecer
+ceat
+ceboyel
+cece
+celiab
+celine
+cemi ceri
+century star
+cepsa
+certina
+cethrio
+cezom
+chahouk
+chainsaw man
+chambray
+champion
+champro
+chandrakala
+chanel
+chang yun
+chantelle
+chaoren
+chaps
+charlie
+charmian
+charming tailor
+charmma
+charmo
+charmo swim
+chartou
+chatham
+cheap
+chef boyardee
+chef code
+chef john
+chemex
+chemisettes by anne
+cheng shin
+cherfly
+cherokee
+chery
+cheryl co
+chevrolet
+chevron
+chevy
+chic country
+chiccloth
+chicgal
+chiclover
+chictry
+chicwish
+chiefs
+chigant
+child of mine by carter's
+children's place
+chioni.od
+chippewa
+chivas regal
+chiyeekiss
+chloefairy
+choadam
+chobani
+choichic
+choiyubella
+cholula
+chooteeyeen
+chota outdoor gear
+chouyatou
+chriselda
+chrleisure
+chrysler
+chubb
+chubbies
+chubbies shorts
+chucky
+chuntianran
+chupeng
+chybigu
+chyrii
+cichic
+cicoci
+cicy bell
+cilivio
+cilucu
+cimb
+cinch
+cinq à sept
+cinyifaan
+circle k
+circulon
+cisco
+cismark
+citgo
+citizen cashmere
+citizens of humanity
+citroen
+city chic
+ciyugngjg
+cj
+ck
+ck swim
+claire's
+clarks
+clearance
+clearence
+cleobella
+clivetalos
+closet accessories
+clothfun
+cloudstyle
+clozoz
+cmegeome
+cnjfj
+cnkwei
+coach
+coastal
+coastal blue
+coastal rose
+coca cola
+coca-cola
+cocojeci
+cocomelon
+cocoship
+cole haan
+coleman
+colgate
+cololura
+coloranimal
+colorful house
+colorful pepper
+columbia
+columbia rash guard
+columbia swim
+colysmo
+comais
+combat
+comforser
+comfort color
+comfort colors
+comfy clothiers
+comfy one
+comme des garcons
+compaq
+compasal
+compass 360
+conceited
+confidence bodywear
+connected
+conocophillips
+continental
+converse
+coofandy
+cookie monster
+coolibar
+cooper
+cooper tire
+coquette
+cora gu
+cordiant
+core10
+coreal
+corelle
+corfty
+corningware
+corral
+corsair
+cos store
+cosabella
+cosdreamer
+cosonsen
+cosplay.fm
+cosplaydiy
+costa
+costco
+costhat
+cosucos
+cosyou
+cotecram
+cotopaxi
+cotrio
+cotton day
+countrywomen
+courecrop
+courvoisier
+coutgo
+couver
+cowcow
+cowoka
+cozeyat
+cozople
+cozyease
+cozywow
+cpxutfp
+cqdy
+cr rolecos
+crazy grid
+creaion
+creatmo us
+crest
+crntcem
+croc
+crocs
+crowntyre
+crucial
+crunchyroll
+crye precision
+crystal
+crz yoga
+crz yoga swim
+csbks
+cst
+ctreela
+cuadra
+cubavera
+cuddl duds
+cugoao
+cuisinart
+cunlin
+cupitool
+cupshe
+cupshe bathing suit
+cupshe swim
+curipeer
+curlbiuty
+curvebay
+custom
+cutecherry
+cutemile
+cuteshower
+cutubly
+cwoapo
+cyber
+cyclamen
+cyinu
+cysexy
+cysincos
+czhjs
+czrlhyt
+czyinxian
+czzzyl
+d&g
+d.q.z
+daawenxi
+daci
+daci swim
+dadawen
+daily ritual
+daisyralon
+daizbella
+dallas
+dallas cowboys
+damipow
+dan post
+dana
+dance fairy
+danedvi
+dangcos
+danibe
+danner
+dannon
+danny & nicole
+danone
+dansko
+danzcue
+daomumen
+darkcom
+darn tough vermont
+darupo
+dasein
+datangep
+datysum
+davanti
+david
+daydance
+dayoung
+dayton
+dazcos
+db moon
+db schenker
+de dietrich
+deal
+dealinm
+death row records
+debica
+decogiver
+deekin
+deep self
+deer stags
+deerhobbes design your own
+deerludie & t
+deerose
+deftones
+dehcqul
+deicaevo
+deilsy
+del monte
+delcarino
+delinte
+delisa
+delivery
+dell
+dellytop
+delonghi
+democracy
+demon slayer
+demonia
+deolax
+derminpro
+deseeni
+design by olivia
+desigual
+desk
+dessiny
+deuter
+dewalt
+dexinyuan
+dezzal
+dgd
+dghbvs
+dhafkie
+dhaonxb
+dhl
+dia
+diadora
+diamondback
+diane von furstenberg
+dibangu
+dickies
+didaey
+didk
+diesel
+different touch
+difficort
+digitharbor
+dikoaina
+dillard
+dimore
+dingang
+dingo
+dinjicun
+dinosaur
+dinyin
+dior
+dirass
+discord
+disguise
+disney
+disney plus
+dixperfect
+dkadmg
+dkny
+dl1961
+dmjvscxl
+dnuri
+dnzzs
+dobreva
+doc martens
+dockers
+docs
+dodge
+dodo bar or
+doisbetthsay
+dokidoo
+dokotoo
+dokuritu
+dolce & gabbana
+dolce vita
+dolfin
+dolfin kids
+dolfin mens
+dolfin swimwear
+dolfin uglies
+dollar
+dolly parton
+donna ricco
+doordash
+dopinmin
+dorchid
+doris apparel
+doshoop
+double coin
+doublestar
+doublju
+douciu
+douglas
+douhoow
+doweha
+dowerme
+dpd
+dr martens
+dr. foot
+dr. scholl's
+dragon ball
+drake
+drake waterfowl
+drc
+dream pairs
+dream wedding
+dreamcrest
+dreamgirl
+dreamlily
+dreamworks
+dreamworks gabby's dollhouse
+drecode
+dremagia
+dreshow
+dress it up
+dress it up dressing
+dress the population
+dress up america
+dressfo
+dressica
+dresslily
+dresstells
+dressy daisy
+dressystar
+dri fit
+dritz
+drofe
+ds
+dsorvicd
+dsplay
+dspsam
+dsv
+dubarry
+dubulle
+duck & fish
+dufetin
+duke
+duna
+dunkin
+dunlop
+duobao
+duobla
+durango
+duraturn
+dutch bros
+duyohc
+dvf
+dxl
+dxton
+dydsz
+dyexces
+dyguyth
+dymade
+dymaisei
+dynamic
+ealafee
+earent
+easedaily
+easeway
+eastdola
+eastelegant
+eastelegant swim
+easton marlowe
+easy spirit
+easy-peasy
+ebifin
+eby
+ebytop
+ecco
+ecdahicc
+echoine
+ecirod
+ecowish
+ecr4kids
+ecupper
+edary
+eddie
+eddoyee
+editcozy
+efan
+effiplus
+efogep
+efvandoloe
+egen
+egretlac
+eightale
+eilova orityle
+eimin
+ekaliy
+ekoropshop
+ekouaer
+ekouaer swim
+elainone
+elegant moments
+elerhythm
+elescat
+elesol
+eleter
+elf
+elfjoy
+eliacher
+elie saab
+elina fashion
+eliza j
+ella lust
+ella moon
+ellakoko
+ellareese
+ellazhu
+ellefemme
+ellenwell
+elliatt women's apparel
+elliewely
+ellos
+elope
+eloquii
+eloquii elements
+elover
+elsa
+elyfer
+emart
+emerald sundae
+eminem
+emmalise
+emmani
+emo
+emporio armani
+emporio armani swim
+emrelod
+en saison
+encanto
+enccfoeo
+endless rose
+english factory
+eni
+enlachic
+enlision
+enopink
+enterprise
+envy body shop
+enzo romeo
+eomenie
+eopuing
+eouoss
+epay
+epeius
+epic
+epson
+eqsjiu
+eras tour
+eraspooky
+erijunor
+erke
+esabel.c
+esmi
+esrtyeryh women costume
+esurance
+esvaiy
+etatng
+etcyy
+ethnic emporium
+etouamao
+euhomy
+eukanuba
+eurotec
+eurzom
+evaless
+evathan
+ever-pretty
+evergreen
+everlane
+evga
+evild
+evzosrz
+ewedoos
+excel
+exchic
+exlura
+exotic india
+expeditors
+expert
+extro&vert
+exxon
+eyekepper
+eynmin
+eytino
+ezen
+fabletics
+fabumily
+facebook
+fadachy
+fadalo
+faded glory
+fage
+fahizo
+faiive
+fair harbor
+fair lady
+fairbeauty
+fairy season
+fairycece
+faithtur
+falken
+faltern
+famnbro
+famulily
+fancheer
+fanciest
+fancy clothing
+fancyinn
+fandecie
+fandee
+faneswalk
+fanfan
+fangetey
+fanient
+fansi nova
+fantoye
+fanvereka
+faretumiya
+farktop
+farm
+farmers
+farroad
+fartey
+farysays
+fashare
+fashion nova
+fashionbride
+fashionme
+fast
+fastkoala
+fattyeery
+favipt
+fawjsais
+faybox
+fazortev
+fbybn
+fccam fccam
+fdgdfg
+feancey
+feaphy
+fearless tape
+fedex
+feelingirl
+feeshow
+feli
+felina
+feline
+fellow
+femflame
+fendi
+fenjar
+fensace
+feolate
+feoya
+fepito
+feraricci
+fereshte
+ferlema
+fernvia
+ferrari
+ferraycle
+fessceruna
+fhnuvb
+fiat
+fiber optic fabric clothing
+field & stream
+figdaw
+figkicksen
+fila
+fine fit
+finegoodwei
+finis
+finis swim
+finwanlo
+fiomva
+firero
+firestone
+firfig
+firstmate
+fisher paykel
+fisoew
+fitch
+fitkicks
+fitwarm
+fivsole
+fixmatti
+fladdswed
+flagpole
+flagpole nyc
+flagpole swim
+flamingals
+flapper
+flatterme
+floerns
+florsheim
+flowy summer
+floyu
+flql
+flying j
+flying tomato
+flyknit
+fnaf
+foghorn
+fohemr
+folgers
+fomoyuu
+fongyushun
+fooullaide
+for g and pl
+forbaysy
+forbidden
+ford
+forerruti
+forever 21
+forolav
+forplay
+fortino landi
+fortix
+fortnite
+fortuna
+forum novelties
+foshow
+fossil
+foster grant
+fovenk
+fowsmon
+fqa
+frame
+frames
+franco sarto
+frank lyman
+frankies
+frankies bikini
+frankies bikinis
+franklin & freeman
+franklin tailored
+franks
+frawirshau
+frd
+free assembly
+free people
+french connection
+french toast
+freshbeauticity
+fretrg
+freya
+freya swim
+friday
+frisbee
+frmuic
+frogg toggs
+frogwill
+fronage
+frozen
+frtroin
+fruit of the loom
+frye
+fsconage
+fstrend
+fsvaby
+fufucaillm
+fuimsul
+fujifilm
+fula-bao
+fullrun
+fullsoft
+fun costumes
+fun shack
+fun world
+fun.com
+funjuly
+funkita
+funky trunks
+funna
+funsies
+funyyzo
+fur
+fussangshu
+futurino
+fv relay
+fybitbo
+fyclemt
+fymnsi
+fyourh
+fz fantastic zone
+fzylqy
+g gradual
+g.c
+g4free
+gabby skye
+gadour
+gagc
+gaggia
+gaharu
+gainward
+galaxy
+galp
+ganni
+gaorui
+gap
+gardenwed
+garmont
+gatsby
+gayhay
+ge
+gear
+geely
+geico
+geifa
+gelante
+geluboao
+geluboao swim
+gemeiq
+gemijack
+genafy
+general mills
+general tire
+generali
+generic
+generies
+genese
+genesis
+genesis imports
+genhoo
+genoapay
+gentlewarm
+geogenry
+george
+georgia
+georgia boot
+georgia boot swim
+germinate
+getty
+geyoga
+ggoob
+ghostbusters
+giffniseti
+gigabyte
+gihuo
+giking
+gildan
+gill
+ginasy
+gingtto
+gino giovanni
+gioberti
+girstunm
+giti
+givenchy
+gkmajkmb
+glamaker
+glamorstar
+glampunch
+glamulice
+glaoly
+glenfiddich
+glenlivet
+glnege
+gloria vanderbilt
+glozeplus
+gls
+gmc
+gmeitoey
+go
+go go
+go mai
+gobles
+gocebaby
+gokatosau
+gold
+gold toe
+golden girls
+goldkey
+goldway
+goobester
+goobgs
+goocheer
+good luck sock
+goodfellow
+goodfellow & co
+goodstoworld
+goodthreads
+goodtrip
+goodyear
+google
+gooho
+goospran
+gopay
+gorais
+goretex
+gorlya
+gossifan
+gotoly
+gottex
+gottex swim
+gowntown
+gpx
+gqizlpwf
+grab a dress
+grabpay
+grace karin
+grace's secret
+graceart
+graeen
+grajtcin
+grapent
+grateful dead
+grbozc
+greasmart
+great pretenders
+great wall
+greatonu
+grecerelle
+greekknight
+green mountain
+greenball
+greentour
+gregory
+gremax
+grewas
+greys anatomy
+grill
+grinch
+grip
+grnshts
+groundwood books
+grubhub
+grundig
+gsbogosse
+gsvibk
+gtmrinjn
+gu
+guayabera
+guberry
+gucci
+gucci swim
+guess
+gukoy
+gulirifei
+gunlire
+guramisi
+guruixu
+guxmo
+guyueqiqin
+gxlu
+gyatsocyg
+gymboree
+h m
+h&m
+h2h
+haggar
+hahomin
+haikyuu
+halara
+halfisland
+halfword
+halife
+halston
+hampton
+hanahola
+hanes
+hankook
+hanna nikole
+hanpceirs
+hansber
+haokeke
+haola
+haoohu
+haorugut
+happy belly
+happy feather
+happy place products
+happy sailed
+hario
+harlem nights
+harley quinn
+harpercollins (usa)
+harrods
+harry potter
+harry styles
+harvard
+harvest
+hasbulla
+hasselblad
+hassembly
+hatant
+hats in the belfry
+haul
+havana
+havana nights
+hawaii hangover
+hawkwell
+hayeabi
+hbo max
+hde
+hdgtsa
+headway
+heartisian
+heathyoga
+heatnbond
+hedmy
+heinz
+heipeiwa
+helikon
+hell bunny
+hello kitty
+hello miz
+helly hansen
+helvetica
+helyo
+hemarisle
+hennessy
+henri lloyd
+hequ
+herapfann
+hercicy
+herlollychips
+herman miller
+hermes
+herneedo
+hero
+herou
+herseas
+herseas swim
+hertz
+heyheyshine
+heysolo
+hfagemv
+hgps8w
+hi clasmix
+hi fly
+hi-tec
+hi-tie
+hibshaby
+hicarer
+high prairie
+highpoint
+hilfiger
+hilife
+hilinker
+hilinker swim
+hill science diet
+hillban
+hilltichu
+hilo
+hilor
+hilor swim
+hinayouth
+hioffer
+hippo
+hisaguhe
+hisdern
+hisilicon
+hitachi
+hiverlay
+hizipop
+hjtt
+hk
+hmprt
+hnyenmcko
+ho.volta
+hobibear
+hocille
+hoco
+hocus pocus
+hodblkt
+hodgman
+hodosports
+hoefirm
+holagift
+holipick
+holivyer
+hollister
+hollywood fashion secrets
+homdor
+home depot
+homebody
+homecoming
+homegoods
+homelex
+homeplus
+homeyee
+homgro
+homidec
+homrain
+honadar
+honda
+honeylove
+honeyuppy
+hong leong
+honganda
+hongmei
+hongyuamy
+honor
+honoson
+honwenle
+hoonigan
+hope & henry
+horizon
+horizon group usa
+hotapei
+hotheart
+hotouch
+hotshawl
+houlengs
+hount
+house of cb
+house of harlow 1960
+houston
+hoyishion
+hp
+hrstuyl
+hs-lk
+hsia
+htys
+htzmo
+huankd
+huawei
+hudiefly
+hudson
+hudson baby
+hue
+hugenice
+hugh ugoli
+hugo
+hugo boss
+hugo boss swim
+huhot
+huiacong
+huk
+hulu
+humm
+hunt s
+hunter
+hurley
+hurley rash guard
+hurley swim
+huskary
+husmeu
+huusa
+huutoe
+hvepuo
+hybrid & company
+hybrid apparel
+hydro flask
+hyllgud
+hyperx
+hyundai
+hyxwrjoker
+hyz
+hyzrz
+hzaini
+iams
+ibakom
+ibm
+ibtom castle
+ibudusexy
+ichosy
+iconic luxe
+iconoflash
+idealsanxun
+idf
+idgreatim
+idifu
+idopip
+ids home
+igirldress
+igo
+ihot
+ihvan online
+iiniim
+iiteeology
+ikadex
+ikea
+ikerenwedding
+illy
+imagine by rubie's
+imekis
+imissilleb
+implacable
+impossible foods
+imysty
+in'voland
+incharacter costumes
+indian trendy
+infashule
+infiniti
+ingoticos
+inlyric
+innersy
+innosilicon
+inorin
+inrug
+insa
+instacart
+instagram
+instobig
+intel
+interstate
+intimo
+into the am
+invachi
+ioiom
+ioizate
+iooiooi
+iovmeir
+iplay, ilearn
+irish setter
+irisjudy
+irisnaya
+irolewin
+iron maiden
+iron man
+ironman
+irtysh
+isabella
+ishleytop
+ishowcos
+isotoner
+israel
+issey miyake
+iszplush
+item
+itos365
+itvti
+iuga
+iuv
+ivay
+iwemek
+iwfev
+iwollence
+izod
+izod swim
+izod swimwear
+izzzhh
+j b hunt
+j brand
+j crew
+j kara
+j. adams
+j. renee
+j.crew
+j.crew swim
+j.ver
+jabasic
+jack daniels
+jack dorsey
+jack martin london
+jack smith
+jade swim
+jade swimwear
+jafinsy
+jaguar
+jalon
+james & erin
+jamktepat
+janasya
+janie and jack
+janmercy
+janmid
+jantzen
+jantzen swim
+jar of love
+jasambac
+jasgood
+jasmygirls
+jazwares
+jbeelate
+jbl
+jbrand
+jcpenney
+jeasona
+jeatha
+jeceika
+jeep
+jeeyjoo
+jefferies socks
+jegermig
+jeibkouy
+jelly brynn
+jemiwa
+jemygins
+jen
+jenniferwu
+jenny yoo
+jeowoqao
+jerrisapparel
+jerxox
+jescakoo
+jessica howard
+jessica mcclintock
+jessica simpson
+jetec
+jeufoin
+jeweky
+jeyiour
+jg jai govindam
+jhtpslr
+jhty
+jielafic
+jiffy lube
+jigfar
+jillumi
+jim beam
+jim green
+jindiim
+jinting
+jinyu
+jisen
+jisisang
+jitai
+jk tyre
+jmierr
+jnmtz
+jockey
+joe burrow
+jogal
+johnnie lene
+johnnie walker
+johnny cash
+johnny was
+johnson & smith
+johnston & murphy
+joie
+jojo siwa
+jollielovin
+jomago
+jona michelle
+jonas brothers
+jones new york
+jonivey
+jormatt
+joseph ribkoff
+josmo
+jostar
+joukavor
+joules
+journee collection
+jousen
+joy bang
+joy join
+joybird
+joyroad
+joyshaper
+joyspun
+jpf
+jpxh
+jr
+js collections
+jsaierl
+jsarle
+jtnfairy
+juakoso
+jude connally
+juejuezi
+juemliy
+juisee
+jujutsu kaisen
+julia jordan
+jumisee
+jumpfolia
+junguan
+juranmo
+jusfitsu
+just love
+just my size
+just play
+just quella
+justice
+justin
+justsun
+justvh
+jutrisujo
+juxinpiju
+jxaudekk
+jxstar
+jzc
+kaei&shi
+kafiloe
+kailua surf
+kakee
+kalita
+kamik
+kancy kole
+kancystore
+kangqifen
+kanu surf
+kaobio
+kappa
+kapsen
+karalin
+karen kane
+karen scott
+karl home
+karl lagerfeld
+karlywindow
+karuedoo
+karwuiio
+kasper
+kate kasin
+kate spade
+kate spade new york(ケイト・スペード ニューヨーク)
+kavousa
+kaws
+kaximil
+kay unger
+kayamiya
+kayotuas
+kaywide
+kbzone
+kdf
+kdlgjdv
+keaiyouhuo
+kedofe
+keedone
+keen
+keevoom
+kegkuo
+keificle
+kelloggs
+kelly
+kelme
+keluummi
+kelywell
+ken
+ken block
+kenda
+kendrick lamar
+kenetrek
+kennough
+kenough
+kenwood
+kenzo
+keomud
+keuixvm
+keurig
+kia
+kiava
+kibbles n bits
+kidkraft
+kidlove
+kidscool space
+kifoven
+kigretn
+kikkoman
+kilig
+killreal
+kim kardashian
+kim s
+kimbo
+kimring
+kimydreama
+kin
+kindcall
+kingfancy
+kingfen
+kingstar
+kingsted
+kingston
+kinlonsair
+kinmiu
+kinnex collections since 1997
+kinsend
+kinstell
+kirei sui
+kirjaudu
+kirkland
+kirundo
+kiss
+kissey prom
+kissfix
+kitchenaid
+kith
+kivary
+kiwi
+kiyonna
+kkjiaf
+klarna
+klean kanteen
+kleinert's
+kliegou
+kllpnw
+klvee
+kma
+kmart
+kmbangi
+kmoly
+kmqsy
+kmystic
+knemmy
+knight
+knitee
+knix
+knix swim
+knoint
+knoll
+koatobbor
+kobyke
+kocowoo
+kodaruber
+koh koh
+koinshha
+kojooin
+kona sol
+koral
+korkers
+kormei
+korn
+korsis
+korssyee
+kosheko
+kosiyi
+kosoze
+kounai
+kranchungel
+kranda
+krlagapas
+kroger
+kuacua
+kucos
+kuehne nagel
+kufeiup
+kufv
+kuhl
+kumeng
+kumho
+kumhos
+kumpulan wang
+kunindome
+kuoser
+kupretty
+kuraki
+kuromi
+kurve
+kuyigo
+kuyigo saodimallsu
+kvanu
+kvikci
+kwap
+kwsp
+kyeese
+kyeuan
+kzoroln
+l space
+l'vow
+l.o.l. surprise!
+la blanca
+la blanca bathing suit
+la blanca swim
+la imprints
+la marzocco
+la milano
+labeca
+labuladuo
+lacavocor
+lacera
+laclef
+lacoste
+lacrosse
+ladaypoa
+ladiery
+ladiyo
+ladyful
+lagavulin
+lagshian
+lagusida
+lahilo
+laishen
+laiyivic
+lakesstory
+lalagen
+lalalin
+lamborghini
+lana del rey
+lancia
+lanckeli
+land rover
+landgolden
+lands end
+lands end bathing suit
+lands end swim
+lane
+lane boots
+lanierwedding
+lanshulan
+lansian
+lanvigator
+lanzom
+lap
+laphroaig
+laqeyko
+larace
+laredo
+lark & ro
+lars amadeus
+laslulu
+laspia
+lat
+latitudepay
+latocos
+laughido
+laughzuaia
+laundry by shelli segal
+lauren by ralph lauren swim
+lauren ralph lauren swim
+lauthen.s
+lauweion
+lavandeform
+lavazza
+lavielente fashion
+lawliet
+lawor
+lawrncedw
+laybuy
+lazutom
+lazy boy
+lbkkc
+lchliny
+lcnba
+lcql
+le bop
+le creuset
+leacoolkey
+leadtex
+leaduty
+leao
+lecoyoyo
+led zeppelin
+lee
+leedya
+leg avenue
+legendary
+leggings depot
+lehauya
+leica
+lemonade
+lenago
+lenovo
+lenox
+lenscrafters
+leonisa
+leos apparel
+lequida
+lerpwige
+lertree
+letdiosto
+lethato
+letsglow
+letsholiday
+letsvdo
+lettarius
+letter love
+leumoi
+levaca
+levi
+levi's jeans
+levis
+lexani
+lexiart
+lexislove
+lexus
+leyajedol
+lfeoost
+lg
+lhj
+lhxiuimj
+li-ning
+liberty imports
+liberty mutual
+libertyzeno
+lidl
+life is good
+lifestride
+lightbare
+lightlykiss
+lik epoch
+likedpage
+likely
+lil cactus
+lilbetter
+lilliween
+lillusory
+lilly pulitzer
+lilly pulitzer swim
+lilments
+lilosy
+lily parker
+lilycoco
+lilyin
+lin lin q
+lincoln
+lindex
+lindo noiva
+linglong
+linjianvhai
+linjou
+linkaja
+linkedin
+linlan
+linsery
+liny xin
+lion nardo
+lioness
+lisanek
+liseaforu
+lisejiu
+lisenrain
+listenwind
+listerine
+litherday
+lithmbridal
+litter
+little adventures
+littleforbig
+liu & qu
+liuguoo
+liuhuo
+liuxuesong
+liuyumin
+livecloth
+lixia
+lizens
+lizstud
+ljyh
+ljzj
+lkous
+ll bean
+lluao
+lnkxrty
+lnyssq
+loaders
+loaiha
+lock and love
+lock lock
+loemes
+loewe
+logene
+logitech
+loki helmet
+lolimiss
+lolong
+lomitti
+london fog
+london times
+longhorn
+longines
+longmarch
+longrich
+longyuan
+lonthanly
+lonxu
+lookbook store
+lookwoild
+loritta
+loslandifen
+losofar
+lotte
+louis raphael
+louis vuitton
+loungees
+lousea
+louvasabuce
+lovable
+love & sports
+love s
+lovecarnation
+loveimgs
+lovelonglong
+lovelywholesale
+lover-beauty
+loveshackfancy
+lovful
+lovsmile
+lovyococo
+lowa
+lowes
+loxdonz
+loyeloy
+loyo
+lpcbdee
+lpmadey
+lrady
+lrd
+lrhneeior
+lrises
+lrosey
+lspace swim
+lsyyskb
+ltakk
+lu's chic
+lubanpao
+lucchese
+luciano
+lucid
+luckinbaby
+lucky brand
+lucky step
+luckylion
+luckymore
+lucuna
+lucy
+lucy in the sky
+lueluoye
+lufeng
+lularoe
+lulenq
+lululemon
+lululemon swim
+luminary you
+lunhaifi
+lunoakvo
+lusait
+lush
+luv her
+luvamia
+luwita
+luxurecourt
+luyana
+lvcbl
+lvenzse
+lwxqwds
+lxnmgo
+ly-vv
+lyaner
+lyft
+lyksaw
+lyqtloml
+lyxiof
+lzh
+lzlrun
+lzztu
+ma&baby
+maacie
+maaji
+maamgic
+mac
+mac duggal
+mac miller
+macallan
+mack weldon
+macys
+mad engine
+madden nyc
+made by johnny
+madewell
+madheart
+madhero
+madjtlqy
+mae
+magcomsen
+maggeer
+maggi
+maggy london
+magic park
+magicsuit
+maidenform
+maisolly
+makabo
+makemechic
+makers mark
+maketina
+maluanlrye
+mama bear
+mamfous
+manaixuan
+mancyfit
+mandiq
+mandu
+maner
+mangmao
+mango
+mangopop
+manulife
+manwan walk
+manydress
+mara
+mara hoffman
+mara hoffman swim
+marathon
+marchesa notte
+marchrol
+mardi gras
+marino avenue
+mark jackson
+marmins
+marmot
+marrywindix
+martin luther king
+maruchan
+marupet
+marvel
+marwa fashion
+marycrafts
+marzxin
+mascomoda
+maserati
+mastercraft
+mathcat
+maui jim
+max studio
+maxam
+maxine of hollywood
+maxvigor
+maxwell
+maxwell house
+maxxis
+maybank
+mayfasey
+mayrun
+maysong
+maysteppe
+mazda
+mbapp
+mccall's
+mccall's patterns
+mcieloluna
+mclaren
+mcool mary
+mealiya
+meckior
+medeshe
+media tek
+mediatek
+meenew
+meihuida
+meijiana
+meikohome
+meilun
+meiqiduo
+meiyifang
+meland
+melissa
+melissa and doug
+melliflo
+menards
+mepase
+mercedes
+mercedes benz
+mericiny
+mermaid
+merokeety
+merqwadd
+merrell
+merrick
+merry day
+meslima
+messi
+metallic
+metallica
+metlife
+metme
+metricfalcon
+metrocharm
+metromile
+meyeeka
+mezlan
+mfjeseaa
+miami
+miao duo
+miaocos
+miccostumes
+michael
+michael jackson
+michael kors
+michelin
+mickey mouse
+microbt
+microsoft
+midiluy
+miduo
+mieeyali
+miele
+miessial
+mighty dog
+miholl
+miivoo
+mikarose
+mikasa
+mikoh
+mikoh swim
+milankerr
+milestar
+millennium
+milloud
+milly
+milpeny
+milreason
+milumia
+milwaukee
+mincib
+minecraft
+mineee
+minesign
+minghai
+mingyuezai
+mini
+minibee
+minifun
+minkpink
+minkpink swim
+minnie mouse
+minote
+mintlimit
+mintsnow
+mioliknya
+miqil
+miraclesuit
+miraclesuit swim
+miracmoda
+miraculous
+mirage
+mirgler
+mirol
+mirraw - come, relive india
+mirteron
+misa
+misa los angeles
+miscly
+miselon
+misfay
+misfits
+miss ord
+missguided
+misshow
+misslo
+missmay
+misstyle
+missufe
+mitaloo
+mitilly
+mitivoway
+mitsubishi
+mitun semi
+miulruma
+miusol
+miutii
+miyang
+miyieonz
+miyouj
+mizoci
+mizzen + main
+mj sereca
+mliyasan
+mllesreve
+mlmw
+moana
+mobil
+mock
+modcloth
+modecrush
+modegal
+modlily
+modvica
+moeencn
+moerdeng
+moflora
+mogu
+moily
+mojessy
+mojick
+mojito collection
+mokayee
+mokoru
+molerani
+molfroa
+molisa
+molisry
+molliya
+molybell
+momcozy
+momeca
+momeitu
+momo store
+monday swim
+monday swimwear
+mondelez
+mongler
+monique lhuillier
+monlity
+moon boot
+moon river
+mooncolour
+mooslover
+moralve
+morgan
+mornworld
+morph
+moskill
+moss rose
+mosucoirl
+mother bee maternity
+mother denim
+mother of the bride
+motherhood maternity
+motley crue
+mouccy
+moulen
+mountain hardwear
+mousya
+moyabo
+mozgalz
+mozhete
+mr swim
+mrf
+mrsfitok
+mryuwb
+msavigvice
+msbasic
+msi
+msk
+mslg
+mtplop
+muadress
+muamalat
+muck
+muck boot
+muck boot company
+mud kingdom
+mud pie
+muineobuka
+muir glen
+mulisky
+multicam
+multitrust
+mumu
+munafie
+murnouche
+muscularfit
+mushare
+musshoe
+musto
+mutitop
+mutti
+muxxn
+muyise
+mxodi
+mxrag
+my bump
+my dress up darling
+my little pony
+my party shirt
+my's
+myherocos
+myrisam
+mysoft
+mystery ranch
+myzeroing
+mzenuop
+mzkdieey
+n\c
+nagfar
+naggoo
+nail
+nalgene
+nanameei
+nanette nanette lepore
+nania
+napa auto parts
+narecte
+narhbrg
+naruto
+nasa
+nashalyly
+natasha dress
+nathgam
+national
+national geographic
+nationwide
+natraki
+natura
+natural balance
+natural uniforms
+naturalizer
+nautica
+nautica swim
+navorendi
+naywig
+nebility
+nec
+needle & thread
+neemee
+neilyoshop
+neiman marcus
+nemidor
+nenona
+neon
+nerlerolian
+nescafe
+nespresso
+nestle
+netflix
+new balance
+new look
+new york life
+newfancy
+newshows
+nexen
+next by athena
+next level
+nhicdns
+nicole miller new york
+nieyook
+nihsatin
+niidor
+nikduck
+nike
+nike kids swim
+nike mens swim
+nike rash guard
+nike swim
+nike swimwear
+nikon
+nimiah
+nimin
+nine west
+nine.eight
+ninovino
+nirovien
+nirvana
+nissan
+nissin
+nitori
+nituyy
+nivah fashion
+niyage
+nmoder
+nnjxd
+no boundaries
+no cold feet
+no nonsense
+nokian
+nonwe
+noomelfish
+nordstrom
+norma kamali
+norma kamali swim
+north eleven
+north face
+north face swim
+northwestern mutual
+nortiv
+nothing fits but
+noubeau
+nova in sky
+novaorily
+novia
+novum crafts
+now
+nrthye
+nspstt
+nssmwttc
+nudie jeans
+nudus
+nufiwi
+nulo
+nunn bush
+nuoqi
+nuova simonelli
+nutexrol
+nutrience
+nvidia
+nzndshd
+o neill rash guard
+o'neill
+o2 baby
+oakley
+oatly
+obbue
+obeeii
+ocstrade
+octwine
+odasdo
+odcocd
+odeuiaod
+odizli
+ododos
+odoldi
+oeak
+ofenbuy
+ofeychun
+off white
+oh polly
+ohio
+ohsofy
+ohvera
+oioloyjm
+oktoberfest
+olaesa
+olchee
+old glory
+old gringo
+old navy
+olivcker
+olivia k
+olivia koo
+ollabaky
+olrain
+olympus
+olyrjie
+omega
+omegatux
+omichic
+omik
+omkagi
+omni
+omoone
+omzin
+one to four
+oneflow
+oneill swim
+onenine
+oneplus
+onest
+ongjwu
+onia
+oniaswim
+onlypuff
+onlyshe
+ontinva
+opawo
+opel
+openers
+openpay
+oplxuo
+opoipin
+oppo
+optimo
+oqq
+oracle
+oral b
+orange
+orca bay
+order
+oreilly auto
+original penguin swim
+orijen
+orinyou
+orlebar brown
+orolay
+ororo
+orrpally
+ortho+rest
+orthostep
+ortis
+orvis
+osprey
+oten
+ottogi
+oudemi
+ouges
+oumbivil
+ours
+oussum
+outrip
+ouyamei
+overworety
+ovo
+ovokcina
+ovruns
+owala
+owin
+owlfay
+owngigi
+oxford
+oxgmoky
+oxiuly
+oxo
+oyoangle
+pacific stream
+pact
+paige
+paintcolors
+palace
+paldo
+palestine
+palit
+palm angels
+panache
+panache swim
+panadila
+panalpina
+panasonic
+pandolah
+pandora
+pangaea
+pantera
+papicutew
+papoopy
+pardecor
+paris sunday
+parker
+parlsdy
+partvece
+party chili
+party king
+partyart
+passat
+passec
+pastel by vivienne
+patagonia
+patagonia baggies
+patagonia rash guard
+patagonia swim
+patbo
+patches
+patpat
+paul fredrick
+paw patrol
+payless
+paylesshere
+pceaiih
+pchee bum
+pdm worldwide
+pdxnyxx
+peaceglad
+peak
+pearl
+peauty
+pedigree
+peds
+peets
+pegasus
+pegasus books
+peiyjyusp
+pejihota
+pejock
+pembrook
+penbrooke
+penbrooke swim
+pendleton
+pengfei
+penguin swim
+penn
+penneys
+penske
+pentax
+peony baby
+pep boys
+pepochic
+peppa pig
+pepper
+pepsico
+perber
+percle
+permodalan nasional
+perona
+perry ellis
+persol
+petcare
+petit ami
+petitebella
+petro
+pettigirl
+petyoo
+peugeot
+pexizuan
+phase one
+phicia
+philips
+phillies
+phillips 66
+phixworld
+phortric
+pickle
+picpunmak
+piepiebuy
+pier one
+pilot
+pink
+pink floyd
+pink queen
+pinkfong
+pinknoke
+pinks
+pinso
+pinsv
+pinterest
+pinup angel
+pinup fashion
+pinupart
+pinziko
+pinzon
+pirate
+pirelli
+pixiemain
+pj paul jones
+plaid&plain
+platinum
+playboi carti
+playboy
+playhaus costumes
+playtex
+pleaser
+plilima
+plulon
+plusexy
+plustrong
+pluviophily
+poboola
+poeticcity
+poewauve
+pofash
+pogtmm
+pokemon
+pokémon
+polero
+polestar
+politour
+polo
+pomuyoo
+popbricks
+poperi
+popilush
+popreal
+popvil
+popyoung
+poraday
+poriff
+porrcey
+porsche
+port authority
+poseshe
+poshglam
+post
+posten
+poster girl
+posti
+postnord
+pottery barn
+power rangers
+powercolor
+prada
+prada swim
+prana
+prana swim
+prdecexlu
+premiorri
+preseossa
+presto!
+pretty little thing
+prettygarden
+prettyguide
+prettyincuffs
+prettywear
+prien
+primark
+prime
+primoda
+prinbara
+princesasa
+princess aisha
+princess expressions
+princess pumps
+prinx
+privimix
+pro form
+proclub
+procter gamble
+profender
+profile by gottex
+progressive
+progresso
+proline
+promking
+promworld
+proof
+propper
+prosport
+protran
+prudential
+psycho bunny
+public bank
+publix
+pudolla
+pukavt
+pukguro
+puli
+puma
+puma swim
+puma swimwear
+pumiey
+purfanree
+purfeel
+purina
+pursuer
+putnam
+putysenxi
+pvs traders
+pxmoda
+pyaeas
+pygfemr
+pyrex
+pyroluna
+qacohu
+qaffier
+qfmqkpi
+qgeno
+qianxiu
+qianxizhan
+qincao
+qinciao
+qinmi lover
+qinsen
+qmker
+qoogoo
+qosmon
+qqa
+qqcute
+qsuccua
+quadpay
+quaker
+qualcomm
+quality stays
+quayside
+queen
+queen of hearts
+quiksilver
+quiksilver rash guard
+quiksilver swim
+quiktrip
+quinceanera
+quneushot
+qurvoo
+qushy
+qusuxi
+qvlang
+qwentmtnty
+qwinee
+qwineer
+qxmyoo
+qzunique
+r&m richards
+r.vivimos
+raanpahmuang
+rachel rachel roy
+radar
+radiohead
+rafaella
+rails
+rainbow friends
+rainday
+raisecom
+rajputana
+ralph lauren
+ram
+ramede
+ramisu
+rammus
+ramoug
+ramy brook
+rancilio
+ranfare
+range rover
+ranger
+ranphee
+ranrann
+ranrui
+rapid
+rapunzel
+rarityus
+rasta imposta
+rated
+ray ban
+razer
+rbx
+re/done
+realtix
+realwax
+rebel
+recious
+recyphi
+red dot boutique
+red hot chili peppers
+red kap
+red wing
+redback
+redgino
+redington
+reebok
+referee
+reivent
+rekayla
+rekita
+rekucci
+relibeauty
+relipop
+relleciga
+relleciga swim
+remelon
+remimi
+remington
+reminisceboutique
+remy martin
+renaissance
+renault
+reneecho
+reoria
+repsol
+retrofete
+retsugo
+rexiud
+rg costumes
+rhb
+rheane
+rhinestone
+rhode
+rhone
+rich bria
+rick and morty
+ricoh
+rieket
+riiqiichy
+rintonix
+riorand
+rip curl
+ripcurl rash guard
+ripcurl swim
+rirow
+ritatte
+ritera
+ritizen
+rivian
+riviera sun
+rjer
+rjxdlt
+rkkvqp
+rmaytiked
+rnxrbb
+ro rox
+roadcruza
+roadhero
+roadking
+roadlux
+roadsina
+roaonocomo
+robbie bee
+robe direct
+roblox
+robust
+rocaillecos
+rockbottom
+rockchip
+rockport
+rockstone
+rocky
+rocky mountain
+rocorose
+rodawu
+rodwake
+roiii
+roleplaycos
+rolex
+rolling stones
+rolls royce
+roma costumes
+romanstii
+romastory
+romwe
+ronaldo
+rongjun
+room and board
+rooscier
+root
+roper
+rose in the box
+rosegal
+roseland
+roselux
+roskiki
+ross
+roswear
+rothco
+rotita
+routeway
+roxy
+roxy swim
+royal
+royal canin
+royal doulton
+rslove
+rsoetoo
+rteyno
+rtic
+rubbermaster
+rubie's
+rubugil
+ruewey
+rufeud
+rufflebutts
+ruffles
+ruihfas
+ruikajia
+ruisin
+runway
+runwind
+ruphedy
+russell
+ruuhee
+ruyuyiru
+rvca
+rvca rash guard
+rvca swim
+rvidbe
+ryanth
+ryder
+s.l. fashions
+saab
+saba
+sachin & babi
+safeway
+safort
+sailing lu
+sailun
+saint laurent
+saintrygo
+sakkas
+saks fifth avenue
+sale
+salesforce
+salimdy
+salliy
+salomon
+saloni
+salorking
+salt
+sam & libby
+sam edelman
+samefar
+sammydress
+sampeel
+sampson
+sams club
+samsung
+samyang
+san j
+san marzano
+sandisk
+sandra darren
+saniplaycos
+sanjisung
+sanmio
+sanpersonlin
+santimon
+saodimallsu
+sapphire
+sarin mathews
+sarwoldey
+sasaerucure
+saslax
+sastianaen
+satina
+satinato
+saucony
+savita
+savkoov
+sawden
+saylor
+scanpan
+scarlet darkness
+scarpa
+scgginttanz
+schneider
+scholtz
+scomchic
+scoop
+scorpion
+scout + ro
+scpfoundation
+scrubstar
+scuba
+scully
+sczwkhg
+sdencin
+sdghg
+sdony
+sdueksi
+sea
+seafolly
+seafolly australia
+seagate
+seajan
+sears
+seaselfie
+seasonal visions wiki
+seat
+sebago
+sebowel
+secret wishes
+sedmoda
+seekme
+sega
+segafredo
+seiko
+self portrait
+selfridges
+selizo
+selkie
+seltaon
+sematomala
+semwiss
+senight
+sensi studio
+sensi studio swim
+sensodyne
+sephora
+septangle
+serena
+sergio hudson
+sermicle
+service
+seryo
+sesame
+sese code
+seven times six
+sevintage
+sexy basics
+sexy dance
+sexyasasii
+sexybeauty.u
+sexycherry
+sexyshine
+seyumixi
+seyurigaoka
+sezzle
+sf-zxtinp
+sfwxcos
+sg.moda
+sgasy
+shallmu
+shanfetl
+shanghai
+shania twain
+shapellx
+shapermint
+shaperx
+sharagano
+sharewin
+sharp
+shecurve
+sheetz
+shein
+shekini
+shekiss
+shell
+shenbolen
+shengfan
+shenhe
+sherrydc
+sherrylo
+sheseeworld
+shewin
+shibaozi
+shidianyi
+shihanee
+shiki
+shimaly
+shindress
+shineflow
+shineglitz
+shinsegae
+shinsto
+shirt stay plus
+shizen
+shoes for crews
+shoes8teen
+shopeepay
+shopessa
+shoshanna
+shsureve
+shuangyu
+shuing
+shunfeng
+shupua
+shy velvet
+sicily
+sidefeel
+sidnor
+siemens
+sierra mountain
+sigma
+significant other
+siliteelon
+silk
+silkworld
+silky toes
+silui
+silverstone
+silvia tcherassi
+simier fariry
+simlu
+simms
+simple flavor
+simple houseware
+simple joys
+simple joys by carter's
+simple trending
+simplefun
+simplicity
+sinastar
+sincerity
+singer
+sinpiling
+sinroyee
+sisancy
+sissyaki
+sister amy
+sixdaysox
+sjwclys
+skcaiht
+skdogdt
+skechers
+skeleteen
+skims
+skirt bl
+skoda
+sky view fashion
+slayer
+slhiewaly
+slimers
+slipknot
+sliverdew
+sllie
+sloggi
+slutty
+smallshow
+smart & sexy
+smartwool
+smarty pants
+smdppwdbb
+smidow
+smiffys
+smileven
+smiling angel
+smirnoff
+smismivo
+smismivo swim
+snapchat
+snow peak
+snowchic
+snowdragon
+sobowo
+society new york
+soda
+sodigne
+sodlon
+sofia jeans by sofia vergara
+sogebo
+solid and striped
+solid striped
+soliloquy
+solodish
+solove-suit
+solovedress
+soly hux
+somthron
+sonic
+sonlay
+sony
+soojun
+sookabeila
+soothfeel
+sopliagon
+sorel
+soundcloud
+souqfone
+sovoyontee
+spadehill
+spanx
+specell
+speechless
+speedo
+speedo aquablade
+speedo endurance
+speedo fastskin
+speedo kids
+speedo learn to swim
+speedo lzr
+speedo men
+speedo mens
+speedo rash guard
+speedo sea squad
+speedo vanquisher
+speedway
+sperry
+spider
+spiderman
+spirit halloween
+splitit
+spmor
+spongebob
+spooktacular creations
+sporlike
+sporlike swim
+sporti
+sporti kids
+sporti mens
+sporti swim
+sportrak
+sports depot
+spotify
+spreadtrum
+spring notion
+spring&gege
+springcmy
+spuunaw
+spyder
+square
+square enix manga
+sr max
+srieox
+sriper
+sriracha
+sspbridal
+sswbasics
+stacy adams
+stafford
+stance
+stanley
+star wars
+starbucks
+starline
+starmaxx
+state farm
+statement sockwear
+staub
+staud
+steelcase
+steelseries
+stelle
+steve madden
+stioedyuan
+stitch
+stone and clark
+storeofbaby
+storybook wishes
+stove
+strada
+stranger things
+strap n' guard
+strg
+stuart weitzman
+stuffems toy shop
+stunner
+stussy
+stylefun
+styleword
+suagox
+sub zero
+subaru
+sublimation
+sublime
+sugar lips
+sugar poison
+sugo
+suhoaziia
+suillty
+suity
+sujhwsx
+sumche
+sumic
+sumind
+sumleno
+summer mae
+summer mae swim
+summersalt
+summersalt bathing suit
+summersalt swim
+summienlink
+summit
+sumtory
+sundek
+sundek swim
+sunfull
+sunloudy
+sunnow
+sunny
+sunny fashion
+sunoco
+sunshinemall
+sunsiom
+sunwittafy
+suolongsama
+superdry
+superia
+superior
+suppromo
+supreme
+sureple
+susana monaco
+susupeng
+suuksess
+suuksess swim
+suvimuga
+suvimuga swim
+suwequest
+suzuki
+swanson
+swatch
+sweaty betty
+sweatyrocks
+sweet dolly
+swift
+swimsuits for all
+swimsuits for all swim
+swiwoel
+sxclub
+sxrjk
+symoid
+syuer
+sywhitta
+syys
+sza
+szivyshi
+szjms
+s・deer
+t.box
+t1fe 1sfe
+ta
+tabasco
+tactical
+tad gear
+tadashi shoji
+tag heuer
+tahari
+tailor ring
+taiziyeah
+takaful
+tameya
+tandarui
+tanming
+tansozer
+tao-ge
+tapanet
+tapata
+tapbull
+tappkice
+target
+tasamo
+tassimo
+taste of the wild
+tatuwst
+taylor swift
+tbahhir
+tbc
+tbrand
+tcombo
+tcremisa
+tcu
+techq
+tecrew
+ted baker
+ted baker swim
+teeuiear
+telefunken
+telegram
+tello
+telstar
+tempt me
+tempt me bathing suit
+tempt me swim
+ten thousand
+teplpce
+teri jon
+ternlm
+terra & sky
+terra and sky
+terro
+tesla
+teuevayl
+texaco
+texas
+texas instruments
+tgirls
+thanth
+thatrich
+thboeer
+the body shop
+the drop
+the elf on the shelf
+the get
+the gym people
+the laundress
+the north face
+the original muck boot company
+the pioneer woman
+the row
+the smiths
+the weeknd
+the world of feathers
+theory
+thermador
+thermos
+theylook
+thombase
+thopavenoir
+thorogood
+three eye store
+thrifty
+thule
+thursday
+thusfar
+tiaford
+tianbo
+tianzhihe
+ticbry
+ticcoy
+tidoirsa
+tiemart
+tiffany
+tigar
+tiger
+tigerdoe
+tijofa
+tiktok
+tim hortons
+timberland
+timberland pro
+time and tru
+timeson
+timex
+tinyhi
+tinyones
+tipsy elves
+tiras
+tisancy
+tissot
+tmustobe
+tn tangnest
+tnhu
+tnnzeet
+tnt
+toad&co
+toadditdo
+tob
+tobeinstyle
+toes home
+toiijoy
+toleny
+toloye
+tometo star
+tommy bahama
+tommy bahama swim
+tommy hilfiger
+tommy hilfiger swim
+tonchengsd
+tongmingyun
+tony lama
+top glu
+topacc
+topcloset
+topdirect
+topdress
+topgun
+topkins
+topline
+topmaker
+toponsky
+topophilia
+topsail
+toptok
+torque
+tory burch
+tory burch swim
+tory sport
+toryemy
+toshiba
+total
+totes
+touched by nature
+touchngo
+toulite
+toylink
+toynk
+toyota
+trackmax
+trader joes
+trailside supply co.
+trailway
+tramontina
+transtone
+trary
+travelers
+travis kelce
+treadway
+trending
+trendy jacket
+trendy queen
+trhtx
+triangl
+triangl swimwear
+triangle
+trico
+trina turk
+trina turk swim
+triplemax
+tripp
+triumph
+tronjori
+true religion
+truewerk
+truform
+trunks surf & swim co.
+trurendi
+tsbridal
+tsher
+tsmnzmu
+tsnbre
+tsultryofs
+ttyaovo
+ttybridal
+tudor
+tuiji
+tuliptrend
+tumknow
+tundra
+tunevuse
+tunga
+tupac
+tupenty
+tupperware
+turkish linen
+tutu
+tutu and sian
+tutu dreams
+tutu.kk
+tuxedo
+tvs
+twfsgirl
+twgone
+twisted x
+twitter
+tyhengta
+tyhtym
+tyler childers
+tyr
+tyr kids
+tyr mens
+tyr rash guard
+tyr swim
+tyr swimwear
+tyrex
+u haul
+u.s. polo assn.
+u.vomade
+uatult
+uber
+ubeufun
+uetzltb
+ugerlov
+ugg
+ugreen
+uguest
+uideazone
+uillui
+uisozsfeb
+ulla johnson
+ulta
+ultimate
+ultracode
+ultranice
+umbro
+umenlele
+umgee
+umimi
+under armour
+under armour rash guard
+under armour swim
+under armour swimwear
+underoutfit
+underwraps
+uni clau
+uniceu
+unicorn
+unicra
+unifaco
+unigrip
+unik
+unilever
+uniqlo
+unique 21
+uniquebella
+uniqueone
+uniqweto
+uniroyal
+unirub
+unisoc
+unison
+unitech
+unitop
+unity
+univ
+universal thread
+unsere
+untucked
+untuckit
+unutiylo
+uodsvp
+uonbox
+uoozee
+uounut
+uplift secret
+upopby
+upopby swim
+uporpor
+ups
+upstart
+upugo
+uqje
+uqrzau
+uraweso
+urban
+urban coco
+urban outfitters
+urban revivo
+urban-peacock
+urru
+usaa
+usps
+usweetie
+utcoco
+utex
+utile
+utocos
+uubaris
+uue
+uzn
+v for city
+v vocni
+vabean
+vaceky
+vafadress
+vahina
+vaiaye
+vakkest
+valada
+valencia
+valentino
+valero
+valiamcep
+value
+valvoline
+vamjump
+van heusen
+vancol
+vanguard
+vanity fair
+vans
+variant
+vasque
+vauxhall
+vbt
+vccicany
+veatzaer
+vector
+vedolay
+velius
+venlian
+venture
+verabendi
+vercelon
+verdestein
+verdusa
+vero monte
+versace
+versace swim
+versear
+vertvie
+verwin
+vetior
+vfshow
+vgofun
+viatabuna
+vibsion
+vichyie
+victorian
+victorias secret
+vieille
+viishow
+viking
+vikita
+vilagrah
+villeroy boch
+vilocy
+vilove
+vimagcal
+vince
+vince camuto
+vintageclothing
+viodia
+vionic
+viottiset
+viottiset swim
+viracy
+virmoku
+visichenup
+visine
+vislily
+vislivin
+vista
+visvic
+vitamin a
+vitamin a swim
+viutil
+viva
+vivicastle
+vivienne westwood
+vivo
+vivobarefoot
+vivosun
+viyorshop
+vjh confort
+vkbridal
+vlazom
+vlone
+vmslyii
+vnaix bridals
+vnimvinter
+vnira
+voboom
+vofuter
+voghtic
+vogue patterns
+voikerdr
+volafa
+volcom
+volcom rash guard
+volcom swim
+volkswagen
+volunboy
+volvo
+vonokee
+vons
+vorifun
+vostey
+votepretty
+votuleazi
+vouch
+voyager
+vrd socks
+vredestein
+vroom
+vrtige
+vs
+vssjavun
+vsudo
+vunahzma
+vuori
+wacoal
+wag
+walkfb
+wallace
+wallarenear
+walldor
+walmart
+waluzs
+wanda
+wander
+wander agio
+wanli
+wanmem
+wannsee
+wantdo
+wantroy
+wantschun
+wantuin
+warby parker
+warehouse
+warhorsee
+warner
+warner's
+warrior
+waruila
+washer
+washington square press
+waterdress
+waterford
+wawa
+wawsam
+way2like
+wayf
+wchecalino
+wcmzj
+wd
+wdirara
+wdpl
+weaczzy
+weatherproof
+wecibor
+wedcur
+wedgwood
+wednesday addams
+wedtrend
+weeour
+weeso
+weisincos
+weisope
+weixinbuy
+welco
+wellwits
+wenazao
+wener
+wenrine
+weonedream
+werena
+werforu
+west elm
+westlake
+wet paint printing + design
+wetlands
+whatsapp
+whatsminer
+whippy
+whirlpool
+whitetails
+whitewed
+whitin
+whoinshop
+whole foods
+wicked north
+wickedly prime
+wifey
+wiiqfd
+wild turkey
+wildparty
+wilfiks
+willbond
+william morrow
+willit
+willow dance
+willyacos
+win2win
+winda
+windforce
+windpower
+winioder
+winmany
+winsafe
+winterlace
+wishu
+wisvooo
+wiwi
+wkior
+wkishenl
+wmlwl
+wneedu
+wodceeke
+wohoparki
+woidoce
+wokanse
+wolf
+wolf unitard
+wolfant
+wolverine
+woman within
+wonder
+wonder nation
+wonderwink
+woodford reserve
+woosea
+wordskei
+wowbridal
+wozvali
+wrangler
+wrstore
+wt02
+wubu
+wusenst
+wyfc
+wztyyds
+würkin stiffs
+x-cheng
+xaatren
+xbtclxebco
+xcjikuke
+xenon
+xero shoes
+xerox
+xfang
+xfglck
+xfx
+xiaomi
+xiaxaixu
+xieerduo
+xijun
+xinchangshangmao
+xinfsh
+xiwukod
+xjizu
+xjkdy
+xllais
+xmtopye
+xokesy
+xpo
+xponni
+xpsjbbb
+xpyiqun
+xscape
+xskjy
+xstsup
+xtep
+xtinmee
+xtratuf
+xuhan
+xuminvty
+xuuly
+xxtaxn
+xxxiticat
+xyaye
+xzlufny
+xzqtive
+y2k
+y_bong
+yacun
+yadifen
+yadressy
+yajedo
+yalfjv
+yalice
+yamasa
+yanekop
+yanfoam
+yanmao
+yanstar
+yanvs
+yaohuole
+yarayasa
+yardsong
+yash gallery
+yat
+yathon
+yayasan peneraju
+year in year out
+yeaxlud
+yeetex
+yeezo
+yegine
+yejue
+yel pro
+yelete
+yelloop
+yellowstone
+yeokou
+yerkoad
+yeselect
+yeshape
+yesno
+yeti
+yexipo
+yfang
+yfine
+yhhkjg
+yiiciovy
+yijiu
+yilis
+yimisan
+yimisan swim
+yingisfitm
+yinqusiting
+yinyyinhs
+yipkorra
+yiulangde
+yizyif
+ym youmu
+ymduch
+yming
+ymoshoe
+ymsha
+ymy
+ymylgddw
+ynd
+ynimioaox
+yoawdats
+yoeasy
+yoff
+yogipace
+yohji yamamoto
+yoins
+yokawe
+yokohama
+yoleshy
+yomorio
+yongcoler
+yonique
+yonique bathing suit
+yonique swim
+yony cles
+yooai
+yoplait
+yosbabe
+youcai
+youjiayi
+youlebao
+your smile
+yousexy
+yousu
+youtalia
+youtube
+yoyomomozi
+yozly
+ypser
+ysl
+ytd
+yuanhang
+yuaohuang
+yucenfu
+yuemengxuan
+yuewoo
+yukaichen
+yukale
+yumeiren
+yuopeid
+yutanral
+yuxin
+yves saint laurent
+yyxr
+yzxdorwj
+z supply
+z&x
+zaberry
+zach bryan
+zaful
+zaful bathing suit
+zaful swim
+zahsy
+zakia
+zakira
+zalalus
+zalooriy
+zando
+zanzea
+zara
+zaras
+zattcas
+zaza bridal
+zbyes
+zcxetp
+zeagoo
+zebaexf
+zeetex
+zeetoo
+zefotim
+zelda
+zelex
+zempertoopa
+zenana
+zenana outfitters
+zenith
+zenni
+zenssia
+zenuta
+zeon
+zeroshop
+zerostage
+zeroxposur
+zeroyaa
+zesica
+zetopump
+zevo
+zexxxy
+zezclo
+zgmyc
+zhangyo
+zhanmai
+zhaovi's
+zhazieon
+zhengquan
+zhitunemi
+zhjigd
+zhongce
+zignature
+zigzag
+zilezile
+zimzinziu
+zinpretty
+zinpretty swim
+zip
+zita element
+zitaimei
+ziumudy
+ziwi peak
+ziyixin
+zkr
+zoctuo
+zodiac
+zoestar
+zoggs
+zoggs swim
+zoghoo
+zojirushi
+zolucky
+zomva
+zone
+zonjie
+zorro
+zotac
+zpsolution
+zqsep
+zshaolhyjyzs
+zshujun
+ztn
+zukulife
+zwrxw
+zwurew
+zyrion
+zyyfly
+zzeqyg
+zzevolss`;
+const DEFAULT_BRAND_TEXT = BRAND_TEXT;
+
+// ========= 全局变量 =========
+let phrases = [];
+let results = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let isCalculating = false;
+let shouldStop = false;
+const brandSet = new Set(BRAND_TEXT.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0));
+
+// ========= 词组库管理 =========
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('phraseInput').value = e.target.result;
+    parseAndPreviewPhrases();
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function parseAndPreviewPhrases() {
+  const input = document.getElementById('phraseInput').value;
+  phrases = input.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+  
+  document.getElementById('phraseCount').textContent = phrases.length;
+  
+  const preview = document.getElementById('phrasePreview');
+  preview.innerHTML = '';
+  
+  const showCount = Math.min(phrases.length, 50);
+  for (let i = 0; i < showCount; i++) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = phrases[i];
+    preview.appendChild(chip);
+  }
+  
+  if (phrases.length > 50) {
+    const more = document.createElement('span');
+    more.className = 'chip';
+    more.textContent = `...还有${phrases.length - 50}个`;
+    preview.appendChild(more);
+  }
+}
+
+function clearPhrases() {
+  document.getElementById('phraseInput').value = '';
+  document.getElementById('phrasePreview').innerHTML = '';
+  document.getElementById('phraseCount').textContent = '0';
+  phrases = [];
+}
+
+// ========= 分区词库管理 =========
+// 修改2：已删除 handlePartitionFileUpload 函数（不再需要文件上传功能）
+
+function savePartitionData(partition) {
+  const input = document.getElementById(`${partition}Input`).value;
+  localStorage.setItem(`wordScorer_${partition}`, input);
+  updatePartitionCount(partition);
+}
+
+function loadPartitionData(partition) {
+  const saved = localStorage.getItem(`wordScorer_${partition}`);
+  if (saved) {
+    document.getElementById(`${partition}Input`).value = saved;
+    updatePartitionCount(partition);
+  }
+}
+
+function updatePartitionCount(partition) {
+  const input = document.getElementById(`${partition}Input`).value;
+  const count = input.split('\n').filter(w => w.trim().length > 0).length;
+  document.getElementById(`${partition}Count`).textContent = count;
+}
+
+// ========= 品牌检测 =========
+function autoDetectBrand(phrase) {
+  if (!document.getElementById('enableBrandDetect').checked) return null;
+  
+  const lower = phrase.toLowerCase();
+  // 使用 brandSet 而不是 BRAND_TEXT，确保保存后的品牌词库能够生效
+  for (const brand of brandSet) {
+    const brandLower = brand.toLowerCase();
+    const regex = new RegExp(`(^|\\s)${brandLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|[^a-z])`, 'i');
+    if (regex.test(' ' + lower + ' ') || lower === brandLower) {
+      return brand;
+    }
+  }
+  return null;
+}
+
+// ========= 构建自定义品牌词 Set =========
+function buildBrandSet() {
+  const saved = localStorage.getItem('wordScorer_brands');
+  const brands = saved ? saved.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0) : [];
+  return new Set(brands);
+}
+
+// ========= 评分逻辑（全得分判定逻辑） =========
+function processPhrase(phrase, index) {
+  const detectedBrand = autoDetectBrand(phrase);
+  
+  // 修改1：分区名称改为品类词、强相关、弱相关
+  const p1Words = document.getElementById('p1Input').value
+    .split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  const p2Words = document.getElementById('p2Input').value
+    .split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  const p3Words = document.getElementById('p3Input').value
+    .split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  
+  // 将分区词库转为 Set 结构，用于快速查找
+  const p1Set = new Set(p1Words);
+  const p2Set = new Set(p2Words);
+  const p3Set = new Set(p3Words);
+  
+  let score = 0;
+  let matchedWords = [];
+  
+  // 读取分区分值设定
+  const p1ScoreVal = parseInt(document.getElementById('p1Score').value) || 3;
+  const p2ScoreVal = parseInt(document.getElementById('p2Score').value) || 2;
+  const p3ScoreVal = parseInt(document.getElementById('p3Score').value) || 1;
+  
+  // 构建 scoreObj（映射每个词到其得分），同时计算基础分 score
+  const lowerPhrase = phrase.toLowerCase();
+  const words = lowerPhrase.split(/\s+/).filter(w => w.length > 0);
+  const scoreObj = Object.create(null);
+  
+  // 先计算基础分（分区词得分）
+  for (const w of words) {
+    let s = 0;
+    if (p1Set.has(w)) {
+      s = p1ScoreVal;
+      if (!matchedWords.some(m => m === `品类词:${w}`)) {
+        matchedWords.push(`品类词:${w}`);
+      }
+    } else if (p2Set.has(w)) {
+      s = p2ScoreVal;
+      if (!matchedWords.some(m => m === `强相关:${w}`)) {
+        matchedWords.push(`强相关:${w}`);
+      }
+    } else if (p3Set.has(w)) {
+      s = p3ScoreVal;
+      if (!matchedWords.some(m => m === `弱相关:${w}`)) {
+        matchedWords.push(`弱相关:${w}`);
+      }
+    }
+    // 品牌词不再加分 - 已删除 brandSet.has(w) 逻辑
+    scoreObj[w] = s;
+    score += s; // 直接累加基础分
+  }
+  
+  // 品牌检测（品牌词不再加分，但保留检测用于跳过词功能）
+  if (detectedBrand && !matchedWords.some(m => m.startsWith('品牌:'))) {
+    matchedWords.push(`品牌:${detectedBrand}`);
+    // 品牌词不再加分 - 已删除 score += brandBonus;
+  }
+  
+  // 单词得分（单词得分模式下计算）
+  let phraseScore = 0;
+  let hasP1 = false, hasP2 = false, hasP3 = false;
+  const simplifiedModeChecked = document.getElementById('simplifiedMode').checked;
+  
+  if (simplifiedModeChecked) {
+    // 单词得分模式：同分区只算一次分
+    
+    // 检查词组中是否包含各分区的词
+    for (const w of words) {
+      if (p1Set.has(w)) hasP1 = true;
+      if (p2Set.has(w)) hasP2 = true;
+      if (p3Set.has(w)) hasP3 = true;
+    }
+    
+    // 每个分区只加一次分
+    if (hasP1) phraseScore += p1ScoreVal;
+    if (hasP2) phraseScore += p2ScoreVal;
+    if (hasP3) phraseScore += p3ScoreVal;
+    
+    // 词区得分模式（如果勾选，使用更严格的逻辑）
+    const simplifiedScoring = document.getElementById('simplifiedScoring').checked;
+    if (simplifiedScoring) {
+      // 词区得分模式：保持原有逻辑（同分区只算一次分）
+      // 当前实现已满足要求
+    }
+  }
+
+  // 读取 Bonus 设置
+  const skipPrep = document.getElementById('skipPrep').checked;
+  const skipColor = document.getElementById('skipColor').checked;
+  const skipSize = document.getElementById('skipSize').checked;
+  const skipNumber = document.getElementById('skipNumber').checked;
+  const skipCustomBrand = document.getElementById('skipCustomBrand').checked;
+  const skipBuiltinBrand = document.getElementById('skipBuiltinBrand').checked;
+  const bonusAmount = Math.max(0, parseInt(document.getElementById('bonusAmount').value) || 20);
+  
+  // 构建 bonusSkip 动态集合
+  const bonusSkip = Object.create(null);
+  if (skipPrep) {
+    for (const k in PREP_SET) bonusSkip[k] = true;
+  }
+  if (skipColor) {
+    for (const k in COLOR_SET) bonusSkip[k] = true;
+  }
+  if (skipSize) {
+    for (const k in SIZE_SET) bonusSkip[k] = true;
+  }
+  // 自定义品牌
+  const customBrandSet = buildBrandSet();
+  if (skipCustomBrand) {
+    for (const k in customBrandSet) bonusSkip[k] = true;
+  }
+  // 内置品牌
+  const autoBrandEnabled = document.getElementById('enableBrandDetect').checked;
+  if (autoBrandEnabled && skipBuiltinBrand) {
+    for (const brand of BRAND_TEXT.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0)) {
+      bonusSkip[brand] = true;
+    }
+  }
+  
+  // 全得分判定
+  let allScored = true;
+  let hasValidWord = false;
+  let hasHighScoreWord = false;
+  let skipTypes = Object.create(null);
+  const brands = detectedBrand ? [detectedBrand] : [];
+  
+  for (let j = 0; j < words.length; j++) {
+    const w = words[j];
+    const s = scoreObj[w] || 0;
+    
+    // 设置品类词标记
+    if (p1Set.has(w)) hasP1 = true;
+    if (p2Set.has(w)) hasP2 = true;
+    if (p3Set.has(w)) hasP3 = true;
+    
+    // 判断此词是否应被"跳过"（不参与全得分判定）
+    let isSkipped = false;
+    let skipType = '';
+    if (bonusSkip[w]) {
+      isSkipped = true;
+      // 记录具体跳过类型
+      if (PREP_SET[w]) skipType = 'prep';
+      else if (COLOR_SET[w]) skipType = 'color';
+      else if (SIZE_SET[w]) skipType = 'size';
+      else if (customBrandSet[w]) skipType = 'customBrand';
+      else if (autoBrandEnabled) skipType = 'builtinBrand';
+    } else if (skipNumber && isNumberOrSymbolOnly(w)) {
+      isSkipped = true;
+      skipType = 'number';
+    }
+    
+    // 记录跳过词类型
+    if (isSkipped && skipType) {
+      skipTypes[skipType] = true;
+    }
+    
+    // 未被跳过且未得分 → 不满足全得分
+    if (!isSkipped && s === 0) {
+      allScored = false;
+    }
+    // 记录是否存在至少一个非跳过词
+    if (!isSkipped) {
+      hasValidWord = true;
+      if (s > 1) hasHighScoreWord = true;
+    }
+  }
+  
+  // bonus：有至少一个有效词 且 除跳过词外全得分 且 包含至少一个品类词 → +bonusAmount
+  let bonusType = ''; // '', '干净词', '全得分'
+  if (hasValidWord && allScored && hasHighScoreWord && hasP1) {
+    score += bonusAmount;
+    // 判断跳过词中是否只有介词（干净词）还是有其它类型
+    const onlyPrep = Object.keys(skipTypes).length > 0 && Object.keys(skipTypes).every(t => t === 'prep');
+    if (onlyPrep) {
+      bonusType = '干净词';
+    } else if (Object.keys(skipTypes).length > 0) {
+      bonusType = '全得分';
+    } else {
+      bonusType = '干净词'; // 没有任何跳过词，也是干净词
+    }
+  } else {
+    bonusType = '不加分';
+  }
+  
+  return {
+    phrase,
+    score,
+    brand: detectedBrand || '',
+    matchedWords: matchedWords.join(', '),
+    index,
+    category: bonusType,
+    fullScoreBonusApplied: bonusType !== '不加分',
+    irrelevantWords: Object.keys(skipTypes).join(', '),
+    phraseScore: phraseScore || 0,
+    brands: brands
+  };
+}
+
+// ========= 计算控制 =========
+function startCalculation() {
+  if (phrases.length === 0) {
+    alert('请先输入词组库！');
+    return;
+  }
+  
+  isCalculating = true;
+  shouldStop = false;
+  results = [];
+  
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('totalCount').textContent = phrases.length;
+  document.getElementById('processedCount').textContent = '0';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressFill').textContent = '0%';
+  
+  processBatch(0);
+}
+
+function processBatch(startIndex) {
+  if (shouldStop || !isCalculating) {
+    finishCalculation();
+    return;
+  }
+  
+  const BATCH_SIZE = 100;
+  const endIndex = Math.min(startIndex + BATCH_SIZE, phrases.length);
+  
+  for (let i = startIndex; i < endIndex; i++) {
+    const result = processPhrase(phrases[i], i);
+    results.push(result);
+    
+    const processed = i + 1;
+    const progress = Math.round((processed / phrases.length) * 100);
+    document.getElementById('processedCount').textContent = processed;
+    document.getElementById('progressFill').style.width = progress + '%';
+    document.getElementById('progressFill').textContent = progress + '%';
+  }
+  
+  if (endIndex < phrases.length) {
+    setTimeout(() => processBatch(endIndex), 0);
+  } else {
+    finishCalculation();
+  }
+}
+
+function stopCalculation() {
+  shouldStop = true;
+  isCalculating = false;
+}
+
+function finishCalculation() {
+  isCalculating = false;
+  document.getElementById('progressWrap').style.display = 'none';
+  
+  // 已移除排序，保留原始输入顺序（按用户输入顺序导出）
+  // results.sort((a, b) => b.score - a.score);
+  
+  currentPage = 1;
+  renderTable();
+  updateResultCount();
+}
+
+function updateResultCount() {
+  document.getElementById('resultCount').textContent = results.length;
+}
+
+// ========= 表格渲染（改动7、改动8：新增列） =========
+function renderTable() {
+  const container = document.getElementById('tableContainer');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, results.length);
+  const pageResults = results.slice(start, end);
+  
+  let html = '<table><thead><tr>';
+  html += '<th>序号</th><th>词组</th><th>单词得分</th><th>词区得分</th><th>品牌</th>';
+  // 改动8：新增两列
+  html += '<th>词组分类</th><th>无关词</th>';
+  html += '<th>匹配词</th>';
+  html += '</tr></thead><tbody>';
+  
+  for (let i = 0; i < pageResults.length; i++) {
+    const r = pageResults[i];
+    html += '<tr>';
+    html += `<td>${start + i + 1}</td>`;
+    html += `<td>${escapeHtml(r.phrase)}</td>`;
+    html += `<td><span class="score-badge score-${r.score}">${r.score}</span></td>`;
+    // 显示词区得分（仅在词区得分模式下有值）
+    html += `<td>${r.phraseScore > 0 ? r.phraseScore : '-'}</td>`;
+    html += `<td>${r.brand ? `<span style="color:var(--accent);">${escapeHtml(r.brand)}</span>` : ''}</td>`;
+    // 改动8：新增两列数据显示
+    html += `<td>${getCategoryBadge(r.category)}</td>`;
+    html += `<td style="font-size:12px;color:var(--text-muted);">${escapeHtml(r.irrelevantWords || '')}</td>`;
+    // 匹配词放在最后一列
+    html += `<td style="font-size:12px;color:var(--text-muted);">${escapeHtml(r.matchedWords)}</td>`;
+    html += '</tr>';
+  }
+  
+  html += '</tbody></table>';
+  container.innerHTML = html;
+  
+  renderPagination();
+}
+
+// 改动8：获取词组分类的badge HTML
+function getCategoryBadge(category) {
+  if (!category) return '';
+  
+  let className = '';
+  if (category === '干净词') {
+    className = 'bonus-clean';
+  } else if (category === '全得分') {
+    className = 'bonus-full';
+  } else if (category === '不加分') {
+    className = 'bonus-none';
+  }
+  
+  return `<span class="bonus-type-badge ${className}">${category}</span>`;
+}
+
+function renderPagination() {
+  const totalPages = Math.ceil(results.length / PAGE_SIZE);
+  const container = document.getElementById('pagination');
+  
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  let html = '';
+  html += `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+  html += `<span style="font-size:13px;">第 ${currentPage} / ${totalPages} 页</span>`;
+  html += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+  
+  container.innerHTML = html;
+}
+
+function goToPage(page) {
+  const totalPages = Math.ceil(results.length / PAGE_SIZE);
+  if (page < 1 || page > totalPages) return;
+  
+  currentPage = page;
+  renderTable();
+  
+  const container = document.getElementById('tableContainer');
+  if (container) {
+    container.scrollTop = 0;
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ========= 导出CSV（改动7：新增列） =========
+function exportCSV() {
+  if (results.length === 0) {
+    alert('没有可导出的结果！');
+    return;
+  }
+  
+  // 在CSV中添加新列（含单词得分）
+  let csv = '\ufeff序号,词组,单词得分,词区得分,品牌,词组分类,无关词,匹配词\n';
+  
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    csv += `${i + 1},"${r.phrase}",${r.score},${r.phraseScore || ''},"${r.brand}","${r.category}","${r.irrelevantWords || ''}","${r.matchedWords}"\n`;
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `词库评分_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+}
+
+// ========= 品牌词库编辑 =========
+function openBrandLibModal() {
+  const modal = document.getElementById('brandLibModal');
+  const editor = document.getElementById('brandLibEditor');
+  
+  editor.value = BRAND_TEXT;
+  updateBrandLibCount();
+  
+  modal.classList.add('show');
+}
+
+function closeBrandLibModal() {
+  const modal = document.getElementById('brandLibModal');
+  modal.classList.remove('show');
+}
+
+function saveBrandLib() {
+  const editor = document.getElementById('brandLibEditor');
+  const newBrands = editor.value.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0);
+  
+  // 更新 BRAND_TEXT，确保两者同步
+  BRAND_TEXT = editor.value;
+  
+  // 更新 brandSet
+  brandSet.clear();
+  for (const b of newBrands) {
+    brandSet.add(b);
+  }
+  
+  // 持久化到 localStorage
+  localStorage.setItem('wordScorer_brands', editor.value);
+  
+  updateBrandLibCount();
+  alert('品牌词库已更新并已永久保存！');
+  closeBrandLibModal();
+}
+
+function restoreBrandLib() {
+  if (confirm('确定恢复默认品牌词库吗？此操作将清除您的自定义品牌词并恢复为内置默认词库。')) {
+    const editor = document.getElementById('brandLibEditor');
+    editor.value = DEFAULT_BRAND_TEXT;
+    // 同时清除 localStorage 中的自定义品牌词
+    localStorage.removeItem('wordScorer_brands');
+    updateBrandLibCount();
+    alert('已恢复为默认品牌词库！');
+  }
+}
+
+function updateBrandLibCount() {
+  const editor = document.getElementById('brandLibEditor');
+  const count = editor.value.split('\n').filter(b => b.trim().length > 0).length;
+  document.getElementById('brandLibCount').textContent = `${count} 个品牌`;
+  // 同步更新首页品牌词库计数
+  document.getElementById('brandCount').textContent = count;
+}
+
+// ========= 品牌词库查找功能 =========
+function searchBrandLib() {
+  const input = document.getElementById('brandSearchInput').value.trim().toLowerCase();
+  const editor = document.getElementById('brandLibEditor');
+  const resultSpan = document.getElementById('brandSearchResult');
+
+  if (!input) {
+    resultSpan.textContent = '';
+    // 清除所有高亮
+    clearBrandHighlight(editor);
+    return;
+  }
+
+  const lines = editor.value.split('\n');
+  let matchCount = 0;
+  let matchIndices = [];
+
+  lines.forEach((line, i) => {
+    if (line.trim().toLowerCase().includes(input)) {
+      matchCount++;
+      matchIndices.push(i);
+    }
+  });
+
+  if (matchCount > 0) {
+    resultSpan.textContent = `找到 ${matchCount} 个匹配`;
+    resultSpan.style.color = '#4caf50';
+    highlightBrandLines(editor, matchIndices);
+    // 滚动到第一个匹配行
+    scrollToBrandMatch(editor, matchIndices[0]);
+  } else {
+    resultSpan.textContent = '未找到匹配';
+    resultSpan.style.color = '#e94560';
+    clearBrandHighlight(editor);
+  }
+}
+
+function highlightBrandLines(editor, indices) {
+  clearBrandHighlight(editor);
+  const lineSet = new Set(indices);
+  // 使用 textarea 的 selection API 高亮
+  const lines = editor.value.split('\n');
+  let startPos = 0;
+  indices.forEach(idx => {
+    for (let i = 0; i < idx; i++) {
+      startPos += lines[i].length + 1; // +1 for newline
+    }
+    const lineLen = lines[idx].length;
+    // 标记高亮范围
+    editor.dataset.highlightStarts = (editor.dataset.highlightStarts || '') + ',' + startPos;
+    editor.dataset.highlightEnds = (editor.dataset.highlightEnds || '') + ',' + (startPos + lineLen);
+    startPos += lineLen + 1;
+  });
+  // 通过选中第一处匹配来引导用户
+  if (indices.length > 0) {
+    let s = 0;
+    for (let i = 0; i < indices[0]; i++) s += lines[i].length + 1;
+    editor.focus();
+    editor.setSelectionRange(s, s + lines[indices[0]].length);
+  }
+}
+
+function clearBrandHighlight(editor) {
+  if (!editor) editor = document.getElementById('brandLibEditor');
+  delete editor.dataset.highlightStarts;
+  delete editor.dataset.highlightEnds;
+}
+
+function scrollToBrandMatch(editor, lineIndex) {
+  const lineHeight = parseInt(getComputedStyle(editor).lineHeight) || 20;
+  const paddingTop = parseInt(getComputedStyle(editor).paddingTop) || 8;
+  const lines = editor.value.substring(0, editor.value.split('\n').slice(0, lineIndex + 1).join('\n').length).split('\n').length - 1;
+  editor.scrollTop = Math.max(0, lines * lineHeight - paddingTop);
+}
+
+function clearBrandSearch() {
+  document.getElementById('brandSearchInput').value = '';
+  document.getElementById('brandSearchResult').textContent = '';
+  const editor = document.getElementById('brandLibEditor');
+  clearBrandHighlight(editor);
+  editor.focus();
+  editor.setSelectionRange(0, 0);
+  editor.scrollTop = 0;
+}
+
+// ========= 品牌词库去重功能 =========
+function dedupeBrandLib() {
+  const ta = document.getElementById('brandLibEditor');
+  // 按行分割 → 转小写并去除空白 → 过滤空行 → Set去重
+  const lines = ta.value.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
+  const unique = [...new Set(lines)];
+  // 重新填入textarea
+  ta.value = unique.join('\n');
+  // 更新计数显示
+  updateBrandLibCount();
+  alert('去重完成！已删除 ' + (lines.length - unique.length) + ' 个重复品牌词。');
+}
+
+// ========= 改动4：使用说明模态框 =========
+function openHelpModal() {
+  const modal = document.getElementById('helpModal');
+  modal.classList.add('show');
+}
+
+function closeHelpModal() {
+  const modal = document.getElementById('helpModal');
+  modal.classList.remove('show');
+}
+
+// ========= 词区得分模式状态管理（已解除与单词得分模式的联动） =========
+// 备注：单词得分模式与词区得分模式现在完全独立，互不干扰
+
+// ========= 初始化 =========
+function init() {
+  // 加载保存的分区数据
+  ['p1', 'p2', 'p3'].forEach(loadPartitionData);
+  
+  // 初始化跳过词词库
+  initSkipSets();
+  
+  // 加载保存的品牌词库（永久化）
+  const savedBrands = localStorage.getItem('wordScorer_brands');
+  if (savedBrands) {
+    BRAND_TEXT = savedBrands;
+    brandSet.clear();
+    for (const b of savedBrands.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0)) {
+      brandSet.add(b);
+    }
+  }
+  
+  // 监听分区输入变化
+  ['p1', 'p2', 'p3'].forEach(partition => {
+    const input = document.getElementById(`${partition}Input`);
+    input.addEventListener('input', () => savePartitionData(partition));
+  });
+  
+  // 监听品牌词库编辑器变化
+  const brandEditor = document.getElementById('brandLibEditor');
+  brandEditor.addEventListener('input', updateBrandLibCount);
+  
+  // 更新品牌计数
+  document.getElementById('brandCount').textContent = brandSet.size;
+  
+  // 点击模态框外部关闭
+  document.getElementById('brandLibModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      closeBrandLibModal();
+    }
+  });
+  
+  // 跳过词编辑模态框外部点击关闭
+  document.getElementById('skipEditModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      closeSkipEditModal();
+    }
+  });
+  
+  // 改动4：使用说明模态框外部点击关闭
+  document.getElementById('helpModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      closeHelpModal();
+    }
+  });
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

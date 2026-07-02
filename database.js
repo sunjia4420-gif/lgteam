@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Supabase 配置（从环境变量读取，默认值用于本地开发）
+// Supabase 配置
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wgjhijtfhqtkdgddtcwh.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || 'sb_publishable_4JkQtzY24ldcGfE7BcZs0Q_hdN1Ms-e';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_4JkQtzY24ldcGfE7BcZs0Q_hdN1Ms-e';
 
 // 创建 Supabase 客户端
 // 注意：这里先用 anon key，如果表禁用了 RLS 就可以直接用

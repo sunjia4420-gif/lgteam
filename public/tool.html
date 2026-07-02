@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>筛词神器 v2.0</title>
+<title>筛词神器 v3.0</title>
 <style>
 :root {
   --bg: #1a1a2e;
@@ -18,6 +18,7 @@
   --score3: #1a6a2a;
   --score4: #8a4a00;
   --score5: #8a1a1a;
+  --banned: #8a1a1a;
   --radius: 8px;
 }
 
@@ -78,10 +79,10 @@ body {
   margin-top: 16px;
 }
 
-/* 修改1：新增分区行样式 - 三个分区卡片一行三列并列 */
+/* 修改1：分区行样式 - 五个分区卡片一行五列并列 */
 .partition-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -117,6 +118,7 @@ body {
   align-items: center;
   gap: 10px;
   font-weight: 600;
+  flex-wrap: wrap;
 }
 
 .card-body {
@@ -290,6 +292,14 @@ tr:hover {
   background: rgba(233, 69, 96, 0.1);
 }
 
+/* 违禁词组行样式 */
+tr.banned-row {
+  background: rgba(138, 26, 26, 0.3);
+}
+tr.banned-row:hover {
+  background: rgba(138, 26, 26, 0.5);
+}
+
 .pagination {
   display: flex;
   gap: 8px;
@@ -430,6 +440,7 @@ tr:hover {
 .bonus-clean { background: #1a6a2a; color: white; }  /* 干净词 - 绿色 */
 .bonus-full { background: #0a3a7a; color: white; }  /* 全得分 - 蓝色 */
 .bonus-none { background: #555577; color: white; }  /* 不加分 - 灰色 */
+.bonus-banned { background: #8a1a1a; color: white; }  /* 违禁词组 - 红色 */
 
 /* 跳过词编辑弹窗样式 */
 .skip-edit-modal {
@@ -505,22 +516,8 @@ tr:hover {
 </style>
 </head>
 <body>
-<script>
-// 身份验证 - 检查用户是否已登录
-(async function() {
-  try {
-    const response = await fetch('/api/check-auth');
-    const data = await response.json();
-    if (!data.success) {
-      window.location.href = '/login';
-    }
-  } catch (err) {
-    window.location.href = '/login';
-  }
-})();
-</script>
 
-<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v2.0</div></header>
+<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v3.0</div></header>
 
 <main class="main-layout">
   <div class="top-row">
@@ -648,6 +645,11 @@ tr:hover {
             <span>内置品牌词不参与全得分判定</span>
             <span style="font-size:11px;color:var(--text-muted);">（在品牌词库编辑）</span>
           </div>
+          <div class="bonus-skip-item">
+            <input type="checkbox" id="skipExempt" checked>
+            <span>豁免跳过词在干净词组判定时忽略</span>
+            <button class="btn btn-sm" onclick="openSkipEditModal('exempt')">编辑</button>
+          </div>
           <div style="margin-top:8px;">
             <label>全得分加分数值：
               <input type="number" id="bonusAmount" value="20" min="0" max="99" style="width:60px;">
@@ -658,7 +660,7 @@ tr:hover {
     </div>
   </div>
 
-  <!-- 修改1：底部行 - 三个分区卡片用新的partition-row包裹 -->
+  <!-- 底部行 - 五个分区卡片用新的partition-row包裹 -->
   <div class="partition-row">
     <!-- 卡片6：品类词（原1分区） -->
     <div class="card" id="p1Card">
@@ -704,6 +706,31 @@ tr:hover {
         <textarea id="p3Input" rows="4" placeholder="输入弱相关词库（每行一个词）"></textarea>
       </div>
     </div>
+
+    <!-- 新增：卡片9：特定加分 -->
+    <div class="card" id="specialBonusCard">
+      <div class="card-header">
+        <span>🔵 特定加分</span>
+        <span class="badge" id="specialBonusCount">0</span>
+        <label style="font-size:12px;margin-left:8px;">
+          每词加分:<input type="number" id="specialBonusScoreInput" value="100" min="0" max="999" style="width:48px;padding:2px 4px;font-size:12px;border-radius:4px;border:1px solid #ccc;">
+        </label>
+      </div>
+      <div class="card-body" id="specialBonusCardBody">
+        <textarea id="specialBonusInput" rows="4" placeholder="输入特定加分词条（每行一个，支持多词词组如 summer dress）"></textarea>
+      </div>
+    </div>
+
+    <!-- 新增：卡片10：违禁词 -->
+    <div class="card" id="bannedWordsCard">
+      <div class="card-header">
+        <span>🚫 违禁词</span>
+        <span class="badge" id="bannedWordsCount">0</span>
+      </div>
+      <div class="card-body" id="bannedWordsCardBody">
+        <textarea id="bannedWordsInput" rows="4" placeholder="输入违禁词（每行一个单词）"></textarea>
+      </div>
+    </div>
   </div>
 
   <!-- 底部行：品牌词过滤（保持单列布局，因为使用说明已改为按钮） -->
@@ -734,9 +761,14 @@ tr:hover {
         </div>
       </div>
       <div class="brand-lib-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div id="brandFilterBar" style="display:none; align-items:center; gap:8px; padding:6px 10px; background:#1a1a2e; border-radius:4px; font-size:13px; color:#4caf50;">
+          <span>🔍 过滤模式：仅显示匹配项</span>
+          <button class="btn btn-sm" onclick="restoreBrandLibView()" style="margin-left:auto;">显示全部</button>
+        </div>
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <input type="text" id="brandSearchInput" placeholder="输入关键词查找品牌..." oninput="searchBrandLib()" style="flex:1; min-width:200px; padding:6px 10px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:13px; outline:none;" />
           <span id="brandSearchResult" style="font-size:12px; color:var(--text-muted); white-space:nowrap;"></span>
+          <button class="btn btn-sm" onclick="filterBrandLib()" title="仅显示搜索匹配的项">过滤显示</button>
           <button class="btn btn-sm" onclick="clearBrandSearch()" title="清除搜索并高亮">清除</button>
         </div>
         <textarea id="brandLibEditor" placeholder="每行一个品牌名"></textarea>
@@ -756,27 +788,89 @@ tr:hover {
         <button class="btn" style="background:#8a1a1a; color:white; border:none;" onclick="closeHelpModal()">关闭</button>
       </div>
       <div class="help-body">
+        <h3>📌 版本更新记录</h3>
+        <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:20px;">
+          <h4 style="color:#e94560; margin:8px 0;">v3.0 (2026-07-02)</h4>
+          <ul style="margin-left:20px;">
+            <li><strong>新增「特定加分」板块</strong>：支持录入单词或2-4词组成的词组，可自定义分值（默认100分），独立于全得分判定和词组分类，仅用于最终得分叠加</li>
+            <li><strong>新增「违禁词」板块</strong>：若词组包含违禁词则直接判定为"违禁词组"，不参与全得分加分和特定加分</li>
+            <li><strong>分区行布局调整</strong>：由原来的3列扩展为5列（品类词、强相关、弱相关、特定加分、违禁词）</li>
+          </ul>
+          
+          <h4 style="color:#e94560; margin:8px 0;">v2.1 (2026-07-02)</h4>
+          <ul style="margin-left:20px;">
+            <li><strong>修复"不加分"判定逻辑</strong>：修正词组分类判定，仅当词组中既无强相关词又无品类词时才判定为"不加分组"</li>
+            <li><strong>重新定义词组分类规则</strong>：
+              <ul style="margin-left:20px; margin-top:6px;">
+                <li><strong>不加分组</strong>：不符合全得分判定条件（含有非得分词且非跳过词的单词）</li>
+                <li><strong>加分词组</strong>：符合全得分判定条件，但词组中包含跳过词或弱相关词</li>
+                <li><strong>干净词组</strong>：符合全得分判定条件，且词组中不含跳过词、不含弱相关词（须包含品类词）</li>
+              </ul>
+            </li>
+            <li><strong>新增豁免跳过词功能</strong>：添加"豁免跳过词"设置，此类词汇在干净词组判定时将被忽略（如for、with、in、on等介词）</li>
+            <li><strong>更新使用说明</strong>：将使用说明更新为书面化描述，提升可读性</li>
+          </ul>
+        </div>
+
         <h3>评分规则说明</h3>
         <ul>
           <li><strong>品类词</strong>：核心产品类别词汇，分值最高（默认3分）</li>
           <li><strong>强相关</strong>：与产品强相关的修饰词，分值中等（默认2分）</li>
           <li><strong>弱相关</strong>：与产品弱相关的词汇，分值较低（默认1分）</li>
           <li><strong>品牌词</strong>：自动识别品牌词库中的品牌，仅标记不加分</li>
+          <li><strong>特定加分</strong>：可自定义词条和分值，命中后在最终得分中叠加（默认100分）</li>
+          <li><strong>违禁词</strong>：词组中包含违禁词则判定为"违禁词组"，取消全得分加分和特定加分</li>
         </ul>
 
-        <h3>全得分判定逻辑</h3>
+        <h3>一、得分词定义</h3>
+        <p>单词分区中所有设置了得分的单词（即<strong>品类词、强相关词、弱相关词</strong>）统称为<strong>得分词</strong>。</p>
+
+        <h3>二、全得分判定逻辑</h3>
+        <p>词组需同时满足以下两个条件，方可触发全得分加分：</p>
         <ul>
-          <li><strong>干净词</strong>：词组仅含得分词（品类词/强相关/弱相关），且包含至少一个品类词，无跳过词 → 加全得分分数</li>
-          <li><strong>全得分</strong>：含得分词，但同时含跳过词（介词/颜色/尺码/品牌词等） → 加全得分分数</li>
-          <li><strong>不加分</strong>：没有强相关词且没有品类词 → 基础分为1</li>
+          <li><strong>词组成分合法</strong>：词组中仅包含得分词和跳过词，不含其他无关单词；</li>
+          <li><strong>得分词覆盖要求</strong>：得分词中至少包含一个强相关词或一个品类词。</li>
+        </ul>
+        <p><em>注：仅含弱相关词（不含强相关词和品类词）的词组，不符合全得分判定条件。</em></p>
+
+        <h3>三、词组分类规则</h3>
+        <p>根据全得分判定结果及词组成分，将词组分为三类：</p>
+        <table style="width:100%; border-collapse:collapse; margin:8px 0; font-size:13px;">
+          <tr style="background:var(--bg-hover);">
+            <th style="border:1px solid var(--border); padding:6px 10px; text-align:left;">分类</th>
+            <th style="border:1px solid var(--border); padding:6px 10px; text-align:left;">判定条件</th>
+          </tr>
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-none">不加分组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">不符合全得分判定条件（含有非得分词且非跳过词的单词）</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-full">加分词组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">符合全得分判定条件，但词组中包含跳过词或弱相关词</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-clean">干净词组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">符合全得分判定条件，且词组中不含跳过词、不含弱相关词（须包含品类词）</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-banned">违禁词组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">词组中包含违禁词，取消全得分加分和特定加分</td>
+          </tr>
+        </table>
+        <p><strong>干净词组升级条件</strong>：符合全得分判定；词组中不含跳过词，且不含弱相关词；须包含至少一个品类词。</p>
+
+        <h3>四、特定加分规则</h3>
+        <p>特定加分功能支持录入单词或<strong>多词词组</strong>（如 "summer dress", "long sleeve top" 等），在最终得分中叠加：</p>
+        <ul>
+          <li>对多词词组（含空格的），使用<strong>子串包含匹配</strong>（即词组的规范化小写形式是否包含该词条）</li>
+          <li>对单词词条，使用<strong>单词级别匹配</strong></li>
+          <li>每命中一个词条，累加设定的加分数值</li>
+          <li>特定加分<strong>不参与全得分判定</strong>，也<strong>不影响词组分类</strong></li>
         </ul>
 
-        <h3>词组分类定义</h3>
-        <ul>
-          <li><span class="bonus-type-badge bonus-clean">干净词</span>：仅包含得分词（品类词/强相关/弱相关），且包含至少一个品类词，无任何跳过词和品牌词</li>
-          <li><span class="bonus-type-badge bonus-full">全得分</span>：包含得分词，但也包含跳过词（介词/颜色/尺码/品牌词等）</li>
-          <li><span class="bonus-type-badge bonus-none">不加分</span>：没有强相关词且没有品类词</li>
-        </ul>
+        <h3>五、豁免跳过词</h3>
+        <p>豁免跳过词（如 <code>for</code>、<code>with</code> 等介词）在全得分判定时被视为跳过词，但在<strong>干净词组判定时可被忽略</strong>（即，含有豁免跳过词的词组仍可被判定为干净词组）。</p>
+        <p>在"全得分判定设置"中勾选"豁免跳过词在干净词组判定时忽略"后，点击"编辑"可自定义豁免跳过词列表。</p>
 
         <h3>词区得分模式</h3>
         <ul>
@@ -790,6 +884,7 @@ tr:hover {
           <li>在"词组库"中输入或上传词组</li>
           <li>点击下方"解析词组"预览</li>
           <li>配置各分区的词库</li>
+          <li>可选：配置特定加分词条和违禁词</li>
           <li>点击"开始计算"进行评分</li>
           <li>可选：启用全得分判定、词区得分模式</li>
         </ul>
@@ -839,6 +934,13 @@ const SIZES = [
 ];
 SIZES.forEach(w => { SIZE_SET[w] = true; });
 
+// ========= 豁免跳过词（干净词组判定时可忽略）=========
+const EXEMPT_SET = Object.create(null);
+const EXEMPT_WORDS = [
+  'for','with','in','on','by','to','from','of','at','into','through','during','before','after','above','below','between','under','over','and','or','but','as','off','up','out','down','via','without','upon','toward','towards','among','amongst','beside','besides','except','excluding','including','regarding','concerning','despite','plus','minus','like','near','past','per','since','till','until','versus','vs'
+];
+EXEMPT_WORDS.forEach(w => { EXEMPT_SET[w] = true; });
+
 // 判断字符串是否纯数字或纯符号
 function isNumberOrSymbolOnly(w) {
   return /^[\d.,]+$/.test(w) || /^[^a-zA-Z]+$/.test(w);
@@ -849,7 +951,7 @@ let currentSkipCategory = ''; // 'prep' | 'color' | 'size'
 
 function openSkipEditModal(category) {
   currentSkipCategory = category;
-  const titles = { prep: '编辑介词/停用词', color: '编辑颜色词', size: '编辑尺码词' };
+  const titles = { prep: '编辑介词/停用词', color: '编辑颜色词', size: '编辑尺码词', exempt: '编辑豁免跳过词' };
   document.getElementById('skipEditTitle').textContent = titles[category] || '编辑跳过词';
   
   // 从 localStorage 或内置词库加载
@@ -860,6 +962,7 @@ function openSkipEditModal(category) {
     if (category === 'prep') words = PREPS.join('\n');
     else if (category === 'color') words = COLORS.join('\n');
     else if (category === 'size') words = SIZES.join('\n');
+    else if (category === 'exempt') words = EXEMPT_WORDS.join('\n');
   }
   document.getElementById('skipEditTextarea').value = words;
   updateSkipEditCount();
@@ -903,6 +1006,7 @@ function updateSkipSet(category) {
     if (category === 'prep') words = [...PREPS];
     else if (category === 'color') words = [...COLORS];
     else if (category === 'size') words = [...SIZES];
+    else if (category === 'exempt') words = [...EXEMPT_WORDS];
   }
   // 更新对应的 Set
   if (category === 'prep') {
@@ -914,6 +1018,9 @@ function updateSkipSet(category) {
   } else if (category === 'size') {
     for (const k in SIZE_SET) delete SIZE_SET[k];
     words.forEach(w => { SIZE_SET[w] = true; });
+  } else if (category === 'exempt') {
+    for (const k in EXEMPT_SET) delete EXEMPT_SET[k];
+    words.forEach(w => { EXEMPT_SET[w] = true; });
   }
 }
 
@@ -922,6 +1029,7 @@ function initSkipSets() {
   updateSkipSet('prep');
   updateSkipSet('color');
   updateSkipSet('size');
+  updateSkipSet('exempt');
 }
 
 // ========= 品牌词库（3909+品牌） =========
@@ -1578,7 +1686,6 @@ brickline
 bridesmay
 bridgerton
 bridgestone
-bridgetone
 briggs new york
 bring
 brisira
@@ -1734,7 +1841,6 @@ chioni.od
 chippewa
 chivas regal
 chiyeekiss
-chloefairy
 choadam
 chobani
 choichic
@@ -2039,7 +2145,7 @@ dodo bar or
 doisbetthsay
 dokidoo
 dokotoo
-dokuritu
+dokuritzu
 dolce & gabbana
 dolce vita
 dolfin
@@ -2080,7 +2186,6 @@ dreamworks
 dreamworks gabby's dollhouse
 drecode
 dremagia
-dreshow
 dress it up
 dress it up dressing
 dress the population
@@ -2109,13 +2214,12 @@ dunkin
 dunlop
 duobao
 duobla
-durango
+duraNGO
 duraturn
 dutch bros
 duyohc
 dvf
 dxl
-dxton
 dydsz
 dyexces
 dyguyth
@@ -2222,7 +2326,7 @@ erijunor
 erke
 esabel.c
 esmi
-esrtyeryh women costume
+esrtyerhy women costume
 esurance
 esvaiy
 etatng
@@ -2645,7 +2749,7 @@ happy sailed
 hario
 harlem nights
 harley quinn
-harpercollins (usa)
+harpencollins (usa)
 harrods
 harry potter
 harry styles
@@ -2948,7 +3052,6 @@ jeeyjoo
 jefferies socks
 jegermig
 jeibkouy
-jelly brynn
 jemiwa
 jemygins
 jen
@@ -2966,7 +3069,6 @@ jeufoin
 jeweky
 jeyiour
 jg jai govindam
-jhtpslr
 jhty
 jielafic
 jiffy lube
@@ -3369,7 +3471,7 @@ linkaja
 linkedin
 linlan
 linsery
-liny xin
+linyxin
 lion nardo
 lioness
 lisanek
@@ -4218,8 +4320,7 @@ primark
 prime
 primoda
 prinbara
-princesasa
-princess aisha
+princess asha
 princess expressions
 princess pumps
 prinx
@@ -4277,7 +4378,7 @@ qoogoo
 qosmon
 qqa
 qqcute
-qsuccua
+qsucua
 quadpay
 quaker
 qualcomm
@@ -4657,7 +4758,7 @@ silky toes
 silui
 silverstone
 silvia tcherassi
-simier fariry
+simier fairyr
 simlu
 simms
 simple flavor
@@ -5536,7 +5637,6 @@ ymduch
 yming
 ymoshoe
 ymsha
-ymy
 ymylgddw
 ynd
 ynimioaox
@@ -5678,6 +5778,23 @@ zzeqyg
 zzevolss`;
 const DEFAULT_BRAND_TEXT = BRAND_TEXT;
 
+// ========= 特定加分词库 =========
+let SPECIAL_BONUS_TEXT = '';
+let specialBonusSet = new Set();
+let specialBonusScore = 100;
+
+// ========= 违禁词库 =========
+let BANNED_WORDS_TEXT = `most
+prime
+deal
+order
+sale
+clearance
+cheap
+best
+bamboo`;
+let bannedSet = new Set();
+
 // ========= 全局变量 =========
 let phrases = [];
 let results = [];
@@ -5756,6 +5873,89 @@ function updatePartitionCount(partition) {
   document.getElementById(`${partition}Count`).textContent = count;
 }
 
+// ========= 特定加分词库管理 =========
+function saveSpecialBonusData() {
+  const input = document.getElementById('specialBonusInput').value;
+  localStorage.setItem('wordScorer_specialBonus', input);
+  updateSpecialBonusCount();
+  // 同步更新 specialBonusSet
+  updateSpecialBonusSet();
+}
+
+function loadSpecialBonusData() {
+  const saved = localStorage.getItem('wordScorer_specialBonus');
+  if (saved) {
+    SPECIAL_BONUS_TEXT = saved;
+    document.getElementById('specialBonusInput').value = saved;
+  } else {
+    SPECIAL_BONUS_TEXT = '';
+    document.getElementById('specialBonusInput').value = '';
+  }
+  updateSpecialBonusCount();
+  updateSpecialBonusSet();
+}
+
+function updateSpecialBonusCount() {
+  const input = document.getElementById('specialBonusInput').value;
+  const count = input.split('\n').filter(w => w.trim().length > 0).length;
+  document.getElementById('specialBonusCount').textContent = count;
+}
+
+function updateSpecialBonusSet() {
+  const input = document.getElementById('specialBonusInput').value;
+  const entries = input.split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  specialBonusSet.clear();
+  entries.forEach(entry => {
+    specialBonusSet.add(entry);
+  });
+}
+
+// ========= 违禁词库管理 =========
+function saveBannedWordsData() {
+  const input = document.getElementById('bannedWordsInput').value;
+  localStorage.setItem('wordScorer_bannedWords', input);
+  updateBannedWordsCount();
+  // 同步更新 bannedSet
+  updateBannedSet();
+}
+
+function loadBannedWordsData() {
+  const saved = localStorage.getItem('wordScorer_bannedWords');
+  if (saved) {
+    BANNED_WORDS_TEXT = saved;
+    document.getElementById('bannedWordsInput').value = saved;
+  } else {
+    // 使用默认违禁词
+    BANNED_WORDS_TEXT = `most
+prime
+deal
+order
+sale
+clearance
+cheap
+best
+bamboo`;
+    document.getElementById('bannedWordsInput').value = BANNED_WORDS_TEXT;
+  }
+  updateBannedWordsCount();
+  updateBannedSet();
+}
+
+function updateBannedWordsCount() {
+  const input = document.getElementById('bannedWordsInput').value;
+  const count = input.split('\n').filter(w => w.trim().length > 0).length;
+  document.getElementById('bannedWordsCount').textContent = count;
+}
+
+function updateBannedSet() {
+  const input = document.getElementById('bannedWordsInput').value;
+  const words = input.split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  bannedSet.clear();
+  words.forEach(w => {
+    bannedSet.add(w);
+  });
+}
+
 // ========= 品牌检测 =========
 function autoDetectBrand(phrase) {
   if (!document.getElementById('enableBrandDetect').checked) return null;
@@ -5809,7 +6009,62 @@ function processPhrase(phrase, index) {
   const words = lowerPhrase.split(/\s+/).filter(w => w.length > 0);
   const scoreObj = Object.create(null);
   
-  // 先计算基础分（分区词得分）
+  // 步骤2：品牌检测（在违禁词检测之前）
+  if (detectedBrand && !matchedWords.some(m => m.startsWith('品牌:'))) {
+    matchedWords.push(`品牌:${detectedBrand}`);
+  }
+  
+  // 步骤3：违禁词检测（优先于所有其他分类）
+  let isBanned = false;
+  for (const w of words) {
+    if (bannedSet.has(w)) {
+      isBanned = true;
+      break;
+    }
+  }
+  
+  // 如果是违禁词组，直接返回结果
+  if (isBanned) {
+    // 仍然计算基础分（品类+强相关+弱相关）
+    for (const w of words) {
+      let s = 0;
+      if (p1Set.has(w)) {
+        s = p1ScoreVal;
+        if (!matchedWords.some(m => m === `品类词:${w}`)) {
+          matchedWords.push(`品类词:${w}`);
+        }
+      } else if (p2Set.has(w)) {
+        s = p2ScoreVal;
+        if (!matchedWords.some(m => m === `强相关:${w}`)) {
+          matchedWords.push(`强相关:${w}`);
+        }
+      } else if (p3Set.has(w)) {
+        s = p3ScoreVal;
+        if (!matchedWords.some(m => m === `弱相关:${w}`)) {
+          matchedWords.push(`弱相关:${w}`);
+        }
+      }
+      scoreObj[w] = s;
+      score += s;
+    }
+    
+    return {
+      phrase,
+      score,
+      brand: detectedBrand || '',
+      matchedWords: matchedWords.join(', '),
+      index,
+      category: '违禁词组',
+      fullScoreBonusApplied: false,
+      irrelevantWords: '违禁词',
+      phraseScore: 0,
+      brands: detectedBrand ? [detectedBrand] : [],
+      isBanned: true,
+      specialBonusApplied: false
+    };
+  }
+  
+  // 步骤4：先计算基础分（分区词得分）
   for (const w of words) {
     let s = 0;
     if (p1Set.has(w)) {
@@ -5831,12 +6086,6 @@ function processPhrase(phrase, index) {
     // 品牌词不再加分 - 已删除 brandSet.has(w) 逻辑
     scoreObj[w] = s;
     score += s; // 直接累加基础分
-  }
-  
-  // 品牌检测（品牌词不再加分，但保留检测用于跳过词功能）
-  if (detectedBrand && !matchedWords.some(m => m.startsWith('品牌:'))) {
-    matchedWords.push(`品牌:${detectedBrand}`);
-    // 品牌词不再加分 - 已删除 score += brandBonus;
   }
   
   // 单词得分（单词得分模式下计算）
@@ -5866,7 +6115,7 @@ function processPhrase(phrase, index) {
       // 当前实现已满足要求
     }
   }
-
+  
   // 读取 Bonus 设置
   const skipPrep = document.getElementById('skipPrep').checked;
   const skipColor = document.getElementById('skipColor').checked;
@@ -5886,6 +6135,11 @@ function processPhrase(phrase, index) {
   }
   if (skipSize) {
     for (const k in SIZE_SET) bonusSkip[k] = true;
+  }
+  // 豁免跳过词（干净词组判定时可忽略）
+  const skipExempt = document.getElementById('skipExempt') ? document.getElementById('skipExempt').checked : false;
+  if (skipExempt) {
+    for (const k in EXEMPT_SET) bonusSkip[k] = true;
   }
   // 自定义品牌
   const customBrandSet = buildBrandSet();
@@ -5925,6 +6179,7 @@ function processPhrase(phrase, index) {
       if (PREP_SET[w]) skipType = 'prep';
       else if (COLOR_SET[w]) skipType = 'color';
       else if (SIZE_SET[w]) skipType = 'size';
+      else if (EXEMPT_SET[w]) skipType = 'exempt';
       else if (customBrandSet[w]) skipType = 'customBrand';
       else if (autoBrandEnabled) skipType = 'builtinBrand';
     } else if (skipNumber && isNumberOrSymbolOnly(w)) {
@@ -5952,17 +6207,59 @@ function processPhrase(phrase, index) {
   let bonusType = ''; // '', '干净词', '全得分'
   if (hasValidWord && allScored && hasHighScoreWord && hasP1) {
     score += bonusAmount;
-    // 判断跳过词中是否只有介词（干净词）还是有其它类型
-    const onlyPrep = Object.keys(skipTypes).length > 0 && Object.keys(skipTypes).every(t => t === 'prep');
-    if (onlyPrep) {
+    // 判断跳过词中是否只有介词/豁免跳过词（干净词）还是有其它类型
+    const onlyPrepOrExempt = Object.keys(skipTypes).length > 0 && Object.keys(skipTypes).every(t => t === 'prep' || t === 'exempt');
+    if (onlyPrepOrExempt) {
       bonusType = '干净词';
     } else if (Object.keys(skipTypes).length > 0) {
       bonusType = '全得分';
     } else {
       bonusType = '干净词'; // 没有任何跳过词，也是干净词
     }
-  } else {
+  } else if (!hasP2 && !hasP1) {
+    // 不加分：既没有强相关词也没有品类词
     bonusType = '不加分';
+  }
+  // 注意：有强相关词(hasP2)但无品类词(!hasP1)的情况，
+  // 或有品类词但不满足allScored/hasHighScoreWord的情况，
+  // bonusType保持为''（普通得分词组，不加特殊分类标签）
+  
+  // 步骤7：特定加分匹配 + 分值叠加
+  let specialBonusApplied = false;
+  let specialBonusDetails = [];
+  const specialBonusScoreInputVal = document.getElementById('specialBonusScoreInput').value;
+  let currentSpecialBonusScore = parseInt(specialBonusScoreInputVal);
+  if (isNaN(currentSpecialBonusScore) || currentSpecialBonusScore < 0) {
+    currentSpecialBonusScore = 100;
+  }
+  
+  if (specialBonusSet.size > 0) {
+    // 对多词词组（含空格的），使用子串包含匹配
+    // 对单词词条，使用单词级别匹配
+    const phraseLower = lowerPhrase;
+    
+    for (const entry of specialBonusSet) {
+      if (entry.includes(' ')) {
+        // 多词词组：子串包含匹配
+        if (phraseLower.includes(entry)) {
+          score += currentSpecialBonusScore;
+          specialBonusApplied = true;
+          specialBonusDetails.push(entry);
+        }
+      } else {
+        // 单词词条：单词级别匹配
+        if (words.includes(entry)) {
+          score += currentSpecialBonusScore;
+          specialBonusApplied = true;
+          specialBonusDetails.push(entry);
+        }
+      }
+    }
+  }
+  
+  // 如果有特定加分命中，添加到匹配词中
+  if (specialBonusDetails.length > 0) {
+    matchedWords.push(`特定加分:${specialBonusDetails.join(',')}`);
   }
   
   return {
@@ -5975,7 +6272,9 @@ function processPhrase(phrase, index) {
     fullScoreBonusApplied: bonusType !== '不加分',
     irrelevantWords: Object.keys(skipTypes).join(', '),
     phraseScore: phraseScore || 0,
-    brands: brands
+    brands: brands,
+    isBanned: false,
+    specialBonusApplied: specialBonusApplied
   };
 }
 
@@ -5989,6 +6288,10 @@ function startCalculation() {
   isCalculating = true;
   shouldStop = false;
   results = [];
+  
+  // 同步更新特定加分和违禁词数据（确保用户输入生效）
+  updateSpecialBonusSet();
+  updateBannedSet();
   
   document.getElementById('progressWrap').style.display = 'block';
   document.getElementById('totalCount').textContent = phrases.length;
@@ -6047,7 +6350,7 @@ function updateResultCount() {
   document.getElementById('resultCount').textContent = results.length;
 }
 
-// ========= 表格渲染（改动7、改动8：新增列） =========
+// ========= 表格渲染（新增列） =========
 function renderTable() {
   const container = document.getElementById('tableContainer');
   const start = (currentPage - 1) * PAGE_SIZE;
@@ -6056,22 +6359,24 @@ function renderTable() {
   
   let html = '<table><thead><tr>';
   html += '<th>序号</th><th>词组</th><th>单词得分</th><th>词区得分</th><th>品牌</th>';
-  // 改动8：新增两列
-  html += '<th>词组分类</th><th>无关词</th>';
-  html += '<th>匹配词</th>';
+  // 新增：特定加分和违禁词状态列
+  html += '<th>特定加分</th><th>词组分类</th><th>无关词</th><th>匹配词</th>';
   html += '</tr></thead><tbody>';
   
   for (let i = 0; i < pageResults.length; i++) {
     const r = pageResults[i];
-    html += '<tr>';
+    const rowClass = r.isBanned ? 'banned-row' : '';
+    html += `<tr class="${rowClass}">`;
     html += `<td>${start + i + 1}</td>`;
     html += `<td>${escapeHtml(r.phrase)}</td>`;
     html += `<td><span class="score-badge score-${r.score}">${r.score}</span></td>`;
     // 显示词区得分（仅在词区得分模式下有值）
     html += `<td>${r.phraseScore > 0 ? r.phraseScore : '-'}</td>`;
     html += `<td>${r.brand ? `<span style="color:var(--accent);">${escapeHtml(r.brand)}</span>` : ''}</td>`;
-    // 改动8：新增两列数据显示
-    html += `<td>${getCategoryBadge(r.category)}</td>`;
+    // 新增：特定加分状态
+    html += `<td>${r.specialBonusApplied ? `<span style="color:#4caf50;">✓ 已加分</span>` : ''}</td>`;
+    // 新增：词组分类（含违禁词组）
+    html += `<td>${getCategoryBadge(r.category, r.isBanned)}</td>`;
     html += `<td style="font-size:12px;color:var(--text-muted);">${escapeHtml(r.irrelevantWords || '')}</td>`;
     // 匹配词放在最后一列
     html += `<td style="font-size:12px;color:var(--text-muted);">${escapeHtml(r.matchedWords)}</td>`;
@@ -6084,8 +6389,12 @@ function renderTable() {
   renderPagination();
 }
 
-// 改动8：获取词组分类的badge HTML
-function getCategoryBadge(category) {
+// 获取词组分类的badge HTML（支持违禁词组）
+function getCategoryBadge(category, isBanned) {
+  if (isBanned) {
+    return `<span class="bonus-type-badge bonus-banned">违禁词组</span>`;
+  }
+  
   if (!category) return '';
   
   let className = '';
@@ -6136,19 +6445,21 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ========= 导出CSV（改动7：新增列） =========
+// ========= 导出CSV（新增列） =========
 function exportCSV() {
   if (results.length === 0) {
     alert('没有可导出的结果！');
     return;
   }
   
-  // 在CSV中添加新列（含单词得分）
-  let csv = '\ufeff序号,词组,单词得分,词区得分,品牌,词组分类,无关词,匹配词\n';
+  // 在CSV中添加新列（含特定加分和违禁词状态）
+  let csv = '\ufeff序号,词组,单词得分,词区得分,品牌,特定加分,词组分类,无关词,匹配词\n';
   
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
-    csv += `${i + 1},"${r.phrase}",${r.score},${r.phraseScore || ''},"${r.brand}","${r.category}","${r.irrelevantWords || ''}","${r.matchedWords}"\n`;
+    const specialBonusStr = r.specialBonusApplied ? '是' : '否';
+    const categoryStr = r.isBanned ? '违禁词组' : r.category;
+    csv += `${i + 1},"${r.phrase}",${r.score},${r.phraseScore || ''},"${r.brand}","${specialBonusStr}","${categoryStr}","${r.irrelevantWords || ''}","${r.matchedWords}"\n`;
   }
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -6160,6 +6471,11 @@ function exportCSV() {
 
 // ========= 品牌词库编辑 =========
 function openBrandLibModal() {
+  // 如果当前是过滤模式，先恢复全部
+  if (brandLibOriginalContent) {
+    restoreBrandLibView();
+  }
+  
   const modal = document.getElementById('brandLibModal');
   const editor = document.getElementById('brandLibEditor');
   
@@ -6170,11 +6486,26 @@ function openBrandLibModal() {
 }
 
 function closeBrandLibModal() {
+  // 如果当前是过滤模式，先恢复全部
+  restoreBrandLibView();
+  
   const modal = document.getElementById('brandLibModal');
   modal.classList.remove('show');
 }
 
 function saveBrandLib() {
+  // 如果当前是过滤模式，先恢复全部再保存
+  if (brandLibOriginalContent) {
+    if (!confirm('当前为过滤模式（仅显示搜索匹配项），保存将使用过滤后的内容（即仅保存匹配的品牌的）。\n\n是否要恢复全部品牌后再保存？\n\n点击"确定"恢复全部并重新编辑；\n点击"取消"直接保存过滤后的内容。')) {
+      // 用户选择直接保存过滤后的内容
+    } else {
+      // 用户选择恢复全部
+      restoreBrandLibView();
+      updateBrandLibCount();
+      return; // 让用户重新编辑
+    }
+  }
+  
   const editor = document.getElementById('brandLibEditor');
   const newBrands = editor.value.split('\n').map(b => b.trim().toLowerCase()).filter(b => b.length > 0);
   
@@ -6219,25 +6550,25 @@ function searchBrandLib() {
   const input = document.getElementById('brandSearchInput').value.trim().toLowerCase();
   const editor = document.getElementById('brandLibEditor');
   const resultSpan = document.getElementById('brandSearchResult');
-
+  
   if (!input) {
     resultSpan.textContent = '';
     // 清除所有高亮
     clearBrandHighlight(editor);
     return;
   }
-
+  
   const lines = editor.value.split('\n');
   let matchCount = 0;
   let matchIndices = [];
-
+  
   lines.forEach((line, i) => {
     if (line.trim().toLowerCase().includes(input)) {
       matchCount++;
       matchIndices.push(i);
     }
   });
-
+  
   if (matchCount > 0) {
     resultSpan.textContent = `找到 ${matchCount} 个匹配`;
     resultSpan.style.color = '#4caf50';
@@ -6290,6 +6621,8 @@ function scrollToBrandMatch(editor, lineIndex) {
 }
 
 function clearBrandSearch() {
+  // 如果当前是过滤模式，先恢复全部
+  restoreBrandLibView();
   document.getElementById('brandSearchInput').value = '';
   document.getElementById('brandSearchResult').textContent = '';
   const editor = document.getElementById('brandLibEditor');
@@ -6297,6 +6630,70 @@ function clearBrandSearch() {
   editor.focus();
   editor.setSelectionRange(0, 0);
   editor.scrollTop = 0;
+}
+
+// ========= 品牌词库过滤显示功能 =========
+let brandLibOriginalContent = ''; // 记录过滤前的原始内容
+
+function filterBrandLib() {
+  const input = document.getElementById('brandSearchInput').value.trim().toLowerCase();
+  const editor = document.getElementById('brandLibEditor');
+  const resultSpan = document.getElementById('brandSearchResult');
+  
+  if (!input) {
+    alert('请先输入搜索关键词');
+    return;
+  }
+  
+  const lines = editor.value.split('\n');
+  const matchedLines = [];
+  
+  lines.forEach((line, i) => {
+    if (line.trim().toLowerCase().includes(input)) {
+      matchedLines.push(line);
+    }
+  });
+  
+  if (matchedLines.length === 0) {
+    resultSpan.textContent = '未找到匹配，无法过滤';
+    resultSpan.style.color = '#f44336';
+    return;
+  }
+  
+  // 保存原始内容
+  brandLibOriginalContent = editor.value;
+  
+  // 替换为仅匹配的行
+  editor.value = matchedLines.join('\n');
+  
+  // 显示过滤提示条
+  document.getElementById('brandFilterBar').style.display = 'flex';
+  
+  // 更新计数
+  const count = editor.value.split('\n').filter(b => b.trim().length > 0).length;
+  document.getElementById('brandLibCount').textContent = `${count} 个品牌 (已过滤)`;
+  
+  resultSpan.textContent = `已过滤，仅显示 ${matchedLines.length} 个匹配`;
+  resultSpan.style.color = '#4caf50';
+}
+
+function restoreBrandLibView() {
+  const editor = document.getElementById('brandLibEditor');
+  const resultSpan = document.getElementById('brandSearchResult');
+  
+  // 如果保存过原始内容，恢复它
+  if (brandLibOriginalContent) {
+    editor.value = brandLibOriginalContent;
+    brandLibOriginalContent = '';
+  }
+  
+  // 隐藏过滤提示条
+  document.getElementById('brandFilterBar').style.display = 'none';
+  
+  // 更新计数
+  updateBrandLibCount();
+  
+  resultSpan.textContent = '';
 }
 
 // ========= 品牌词库去重功能 =========
@@ -6312,7 +6709,7 @@ function dedupeBrandLib() {
   alert('去重完成！已删除 ' + (lines.length - unique.length) + ' 个重复品牌词。');
 }
 
-// ========= 改动4：使用说明模态框 =========
+// ========= 使用说明模态框 =========
 function openHelpModal() {
   const modal = document.getElementById('helpModal');
   modal.classList.add('show');
@@ -6331,6 +6728,12 @@ function init() {
   // 加载保存的分区数据
   ['p1', 'p2', 'p3'].forEach(loadPartitionData);
   
+  // 加载特定加分数据
+  loadSpecialBonusData();
+  
+  // 加载违禁词数据
+  loadBannedWordsData();
+  
   // 初始化跳过词词库
   initSkipSets();
   
@@ -6348,6 +6751,27 @@ function init() {
   ['p1', 'p2', 'p3'].forEach(partition => {
     const input = document.getElementById(`${partition}Input`);
     input.addEventListener('input', () => savePartitionData(partition));
+  });
+  
+  // 监听特定加分输入变化
+  const specialBonusInput = document.getElementById('specialBonusInput');
+  specialBonusInput.addEventListener('input', () => {
+    saveSpecialBonusData();
+    updateSpecialBonusSet();
+  });
+  
+  // 监听违禁词输入变化
+  const bannedWordsInput = document.getElementById('bannedWordsInput');
+  bannedWordsInput.addEventListener('input', () => {
+    saveBannedWordsData();
+    updateBannedSet();
+  });
+  
+  // 监听特定加分分值变化
+  const specialBonusScoreInput = document.getElementById('specialBonusScoreInput');
+  specialBonusScoreInput.addEventListener('input', () => {
+    const val = parseInt(specialBonusScoreInput.value);
+    specialBonusScore = isNaN(val) || val < 0 ? 100 : val;
   });
   
   // 监听品牌词库编辑器变化
@@ -6371,7 +6795,7 @@ function init() {
     }
   });
   
-  // 改动4：使用说明模态框外部点击关闭
+  // 使用说明模态框外部点击关闭
   document.getElementById('helpModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) {
       closeHelpModal();

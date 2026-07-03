@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>筛词神器 v3.0</title>
+<title>筛词神器 v3.1</title>
 <style>
 :root {
   --bg: #1a1a2e;
@@ -518,7 +518,7 @@ tr.banned-row:hover {
 </head>
 <body>
 
-<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v3.0</div></header>
+<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v3.1</div></header>
 
 <main class="main-layout">
   <div class="top-row">
@@ -608,7 +608,10 @@ tr.banned-row:hover {
       </div>
 
       <!-- 改动4：使用说明按钮（替代原来的使用说明卡片） -->
-      <button class="btn" onclick="openHelpModal()" style="width:100%;margin-bottom:12px;">💡 使用说明</button>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button class="btn" onclick="openHelpModal()" style="flex:1;">💡 使用说明</button>
+        <button class="btn" onclick="openVersionModal()" style="flex:1; background:#e94560;">📌 版本记录</button>
+      </div>
 
       <!-- 改动3：全得分判定设置卡片 -->
       <div class="card" id="bonusSettingsCard">
@@ -789,31 +792,6 @@ tr.banned-row:hover {
         <button class="btn" style="background:#8a1a1a; color:white; border:none;" onclick="closeHelpModal()">关闭</button>
       </div>
       <div class="help-body">
-        <h3>📌 版本更新记录</h3>
-        <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:20px;">
-          <h4 style="color:#e94560; margin:8px 0;">v3.0 (2026-07-02)</h4>
-          <ul style="margin-left:20px;">
-            <li><strong>新增「特定加分」板块</strong>：支持录入单词或2-4词组成的词组，可自定义分值（默认100分），独立于全得分判定和词组分类，仅用于最终得分叠加</li>
-            <li><strong>新增「违禁词」板块</strong>：若词组包含违禁词则直接判定为"违禁词组"，不参与全得分加分和特定加分</li>
-            <li><strong>分区行布局调整</strong>：由原来的3列扩展为5列（品类词、强相关、弱相关、特定加分、违禁词）</li>
-          </ul>
-          
-          <h4 style="color:#e94560; margin:8px 0;">v2.1 (2026-07-02)</h4>
-          <ul style="margin-left:20px;">
-            <li><strong>修复"不加分"判定逻辑</strong>：修正词组分类判定，仅当词组中既无强相关词又无品类词时才判定为"不加分组"</li>
-            <li><strong>重新定义词组分类规则</strong>：
-              <ul style="margin-left:20px; margin-top:6px;">
-                <li><strong>无关词组</strong>：词组中不含任何得分词（品类词/强相关/弱相关），或仅含弱相关词</li>
-                <li><strong>不加分词组</strong>：含有得分词但不符合全得分判定条件（含有非得分词且非跳过词的单词）</li>
-                <li><strong>加分词组</strong>：符合全得分判定条件，但词组中包含跳过词或弱相关词</li>
-                <li><strong>干净词组</strong>：符合全得分判定条件，且词组中不含跳过词、不含弱相关词（须包含品类词）</li>
-              </ul>
-            </li>
-            <li><strong>新增豁免跳过词功能</strong>：添加"豁免跳过词"设置，此类词汇在干净词组判定时将被忽略（如for、with、in、on等介词）</li>
-            <li><strong>更新使用说明</strong>：将使用说明更新为书面化描述，提升可读性</li>
-          </ul>
-        </div>
-
         <h3>评分规则说明</h3>
         <ul>
           <li><strong>品类词</strong>：核心产品类别词汇，分值最高（默认3分）</li>
@@ -6164,6 +6142,8 @@ function processPhrase(phrase, index) {
   let allScored = true;
   let hasValidWord = false;
   let hasHighScoreWord = false;
+  let hasSkipWord = false;
+  let hasWeakRelated = false;
   let skipTypes = Object.create(null);
   const brands = detectedBrand ? [detectedBrand] : [];
   
@@ -6174,13 +6154,14 @@ function processPhrase(phrase, index) {
     // 设置品类词标记
     if (p1Set.has(w)) hasP1 = true;
     if (p2Set.has(w)) hasP2 = true;
-    if (p3Set.has(w)) hasP3 = true;
+    if (p3Set.has(w)) { hasP3 = true; hasWeakRelated = true; }
     
     // 判断此词是否应被"跳过"（不参与全得分判定）
     let isSkipped = false;
     let skipType = '';
     if (bonusSkip[w]) {
       isSkipped = true;
+      hasSkipWord = true;
       // 记录具体跳过类型
       if (PREP_SET[w]) skipType = 'prep';
       else if (COLOR_SET[w]) skipType = 'color';
@@ -6190,6 +6171,7 @@ function processPhrase(phrase, index) {
       else if (autoBrandEnabled) skipType = 'builtinBrand';
     } else if (skipNumber && isNumberOrSymbolOnly(w)) {
       isSkipped = true;
+      hasSkipWord = true;
       skipType = 'number';
     }
     
@@ -6209,18 +6191,15 @@ function processPhrase(phrase, index) {
     }
   }
   
-  // bonus：有至少一个有效词 且 除跳过词外全得分 且 包含至少一个品类词 → +bonusAmount
-  let bonusType = ''; // '', '干净词', '全得分'
-  if (hasValidWord && allScored && hasHighScoreWord && hasP1) {
+  // bonus：有至少一个有效词 且 除跳过词外全得分 且 包含至少一个强相关词或品类词 → +bonusAmount
+  let bonusType = ''; // '', '干净词组', '加分词组'
+  if (hasValidWord && allScored && hasHighScoreWord && (hasP2 || hasP1)) {
     score += bonusAmount;
-    // 判断跳过词中是否只有介词/豁免跳过词（干净词）还是有其它类型
-    const onlyPrepOrExempt = Object.keys(skipTypes).length > 0 && Object.keys(skipTypes).every(t => t === 'prep' || t === 'exempt');
-    if (onlyPrepOrExempt) {
-      bonusType = '干净词';
-    } else if (Object.keys(skipTypes).length > 0) {
-      bonusType = '全得分';
+    // 判断词组类型：含跳过词/弱相关词，OR 不含品类词 → 加分词组；不含跳过词、不含弱相关词、且含品类词 → 干净词组
+    if (hasSkipWord || hasWeakRelated || !hasP1) {
+      bonusType = '加分词组';
     } else {
-      bonusType = '干净词'; // 没有任何跳过词，也是干净词
+      bonusType = '干净词组';
     }
   } else if (!hasP2 && !hasP1) {
     // 无关词组：既没有强相关词也没有品类词（或只有弱相关词）
@@ -6410,9 +6389,9 @@ function getCategoryBadge(category, isBanned) {
   if (!category) return '';
   
   let className = '';
-  if (category === '干净词') {
+  if (category === '干净词组') {
     className = 'bonus-clean';
-  } else if (category === '全得分') {
+  } else if (category === '加分词组') {
     className = 'bonus-full';
   } else if (category === '无关词组') {
     className = 'bonus-irrelevant';
@@ -6824,6 +6803,9 @@ document.addEventListener('DOMContentLoaded', init);
 function openVersionModal() {
   document.getElementById('versionModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // 重置滚动位置
+  var helpBody = document.querySelector('#versionModal .help-body');
+  if (helpBody) helpBody.scrollTop = 0;
 }
 
 function closeVersionModal() {
@@ -6833,13 +6815,13 @@ function closeVersionModal() {
 </script>
 
 <!-- 版本更新记录弹窗 -->
-<div id="versionModal" class="modal-overlay" style="display:none;">
-  <div class="modal-content" style="max-width:680px;">
-    <div class="modal-header">
-      <h3>📌 版本更新记录</h3>
-      <button class="modal-close" onclick="closeVersionModal()">×</button>
+<div id="versionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div style="background:#16213e; border-radius:12px; width:90%; max-width:680px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.5); overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; background:#1a1a2e; border-bottom:1px solid #2a2a4a;">
+      <span style="font-size:16px; font-weight:600;">📌 版本更新记录</span>
+      <button class="btn" style="background:#8a1a1a; color:white; border:none;" onclick="closeVersionModal()">关闭</button>
     </div>
-    <div class="help-body">
+    <div class="help-body" style="padding:16px; flex:1; display:flex; flex-direction:column; overflow:hidden;">
       <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:16px;">
         <h4 style="color:#e94560; margin:8px 0;">v3.1 (2026-07-01)</h4>
         <ul style="margin-left:20px;">
@@ -6854,9 +6836,6 @@ function closeVersionModal() {
           <li><strong>新增「违禁词」板块</strong>：包含最高优先级的违禁词检测逻辑</li>
         </ul>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="primary-btn" onclick="closeVersionModal()">关闭</button>
     </div>
   </div>
 </div>

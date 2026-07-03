@@ -439,7 +439,8 @@ tr.banned-row:hover {
 
 .bonus-clean { background: #1a6a2a; color: white; }  /* 干净词 - 绿色 */
 .bonus-full { background: #0a3a7a; color: white; }  /* 全得分 - 蓝色 */
-.bonus-none { background: #555577; color: white; }  /* 不加分 - 灰色 */
+.bonus-irrelevant { background: #555577; color: white; }  /* 无关词组 - 灰色 */
+.bonus-no-bonus { background: #8a8a00; color: white; }  /* 不加分词组 - 暗黄色 */
 .bonus-banned { background: #8a1a1a; color: white; }  /* 违禁词组 - 红色 */
 
 /* 跳过词编辑弹窗样式 */
@@ -802,7 +803,8 @@ tr.banned-row:hover {
             <li><strong>修复"不加分"判定逻辑</strong>：修正词组分类判定，仅当词组中既无强相关词又无品类词时才判定为"不加分组"</li>
             <li><strong>重新定义词组分类规则</strong>：
               <ul style="margin-left:20px; margin-top:6px;">
-                <li><strong>不加分组</strong>：不符合全得分判定条件（含有非得分词且非跳过词的单词）</li>
+                <li><strong>无关词组</strong>：词组中不含任何得分词（品类词/强相关/弱相关），或仅含弱相关词</li>
+                <li><strong>不加分词组</strong>：含有得分词但不符合全得分判定条件（含有非得分词且非跳过词的单词）</li>
                 <li><strong>加分词组</strong>：符合全得分判定条件，但词组中包含跳过词或弱相关词</li>
                 <li><strong>干净词组</strong>：符合全得分判定条件，且词组中不含跳过词、不含弱相关词（须包含品类词）</li>
               </ul>
@@ -817,7 +819,7 @@ tr.banned-row:hover {
           <li><strong>品类词</strong>：核心产品类别词汇，分值最高（默认3分）</li>
           <li><strong>强相关</strong>：与产品强相关的修饰词，分值中等（默认2分）</li>
           <li><strong>弱相关</strong>：与产品弱相关的词汇，分值较低（默认1分）</li>
-          <li><strong>品牌词</strong>：自动识别品牌词库中的品牌，仅标记不加分</li>
+          <li><strong>品牌词</strong>：自动识别品牌词库中的品牌，仅标记不加分（品牌检测独立于点得分）</li>
           <li><strong>特定加分</strong>：可自定义词条和分值，命中后在最终得分中叠加（默认100分）</li>
           <li><strong>违禁词</strong>：词组中包含违禁词则判定为"违禁词组"，取消全得分加分和特定加分</li>
         </ul>
@@ -841,8 +843,12 @@ tr.banned-row:hover {
             <th style="border:1px solid var(--border); padding:6px 10px; text-align:left;">判定条件</th>
           </tr>
           <tr>
-            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-none">不加分组</span></td>
-            <td style="border:1px solid var(--border); padding:6px 10px;">不符合全得分判定条件（含有非得分词且非跳过词的单词）</td>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-irrelevant">无关词组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">词组中不含任何得分词（品类词/强相关/弱相关），或仅含弱相关词</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-no-bonus">不加分词组</span></td>
+            <td style="border:1px solid var(--border); padding:6px 10px;">含有得分词但不符合全得分判定条件（含有非得分词且非跳过词的单词）</td>
           </tr>
           <tr>
             <td style="border:1px solid var(--border); padding:6px 10px;"><span class="bonus-type-badge bonus-full">加分词组</span></td>
@@ -6217,12 +6223,18 @@ function processPhrase(phrase, index) {
       bonusType = '干净词'; // 没有任何跳过词，也是干净词
     }
   } else if (!hasP2 && !hasP1) {
-    // 不加分：既没有强相关词也没有品类词
-    bonusType = '不加分';
+    // 无关词组：既没有强相关词也没有品类词（或只有弱相关词）
+    bonusType = '无关词组';
   }
   // 注意：有强相关词(hasP2)但无品类词(!hasP1)的情况，
   // 或有品类词但不满足allScored/hasHighScoreWord的情况，
-  // bonusType保持为''（普通得分词组，不加特殊分类标签）
+  // bonusType设置为'不加分词组'（有得分词但不符合全得分条件）
+  
+  // 不加分词组：有得分词但不符合全得分条件（消除未分类空白）
+  if (bonusType === '') {
+    bonusType = '不加分词组';
+  }
+
   
   // 步骤7：特定加分匹配 + 分值叠加
   let specialBonusApplied = false;
@@ -6269,7 +6281,7 @@ function processPhrase(phrase, index) {
     matchedWords: matchedWords.join(', '),
     index,
     category: bonusType,
-    fullScoreBonusApplied: bonusType !== '不加分',
+    fullScoreBonusApplied: bonusType !== '无关词组' && bonusType !== '不加分词组',
     irrelevantWords: Object.keys(skipTypes).join(', '),
     phraseScore: phraseScore || 0,
     brands: brands,
@@ -6402,8 +6414,10 @@ function getCategoryBadge(category, isBanned) {
     className = 'bonus-clean';
   } else if (category === '全得分') {
     className = 'bonus-full';
-  } else if (category === '不加分') {
-    className = 'bonus-none';
+  } else if (category === '无关词组') {
+    className = 'bonus-irrelevant';
+  } else if (category === '不加分词组') {
+    className = 'bonus-no-bonus';
   }
   
   return `<span class="bonus-type-badge ${className}">${category}</span>`;
@@ -6805,6 +6819,46 @@ function init() {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
+
+// 版本记录弹窗
+function openVersionModal() {
+  document.getElementById('versionModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVersionModal() {
+  document.getElementById('versionModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
 </script>
+
+<!-- 版本更新记录弹窗 -->
+<div id="versionModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content" style="max-width:680px;">
+    <div class="modal-header">
+      <h3>📌 版本更新记录</h3>
+      <button class="modal-close" onclick="closeVersionModal()">×</button>
+    </div>
+    <div class="help-body">
+      <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:16px;">
+        <h4 style="color:#e94560; margin:8px 0;">v3.1 (2026-07-01)</h4>
+        <ul style="margin-left:20px;">
+          <li><strong>重构词组分类</strong>：将"不加分组"拆分为"无关词组"和"不加分词组"两类，消除未分类空白</li>
+          <li><strong>新增版本记录弹窗</strong>：版本更新记录独立为弹窗，不占用使用说明版面</li>
+        </ul>
+      </div>
+      <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:16px;">
+        <h4 style="color:#e94560; margin:8px 0;">v3.0 (2026-07-02)</h4>
+        <ul style="margin-left:20px;">
+          <li><strong>新增「特定加分」板块</strong>：支持录入单词或2-4词组成的词组，可自定义分值（默认100分），独立叠加</li>
+          <li><strong>新增「违禁词」板块</strong>：包含最高优先级的违禁词检测逻辑</li>
+        </ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="primary-btn" onclick="closeVersionModal()">关闭</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

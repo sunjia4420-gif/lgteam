@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const db = require('./database');
+// deploy-sync: v4.3.1 (tool.html 已含列映射防污染修复；此注释仅用于触发 Render 重新部署)
 
 const app = express();
 const PORT = process.env.PORT || 3000;

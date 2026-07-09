@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>筛词神器 v4.3</title>
+<title>筛词神器 v4.3.1</title>
 <style>
 :root {
   --bg: #1a1a2e;
@@ -831,7 +831,7 @@ tr.banned-row:hover {
 </head>
 <body>
 
-<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v4.3</div><span class="header-actions" style="margin-left:auto; display:inline-flex; gap:8px; align-items:center;"><button class="btn" onclick="saveConfig()">保存配置</button><button class="btn" onclick="document.getElementById('configFileInput').click()">加载配置</button></span><input type="file" id="configFileInput" accept=".json,application/json" style="display:none" onchange="handleConfigFile(event)"></header>
+<header class="app-header"><div id="appTitle" contenteditable="true" spellcheck="false">筛词神器 v4.3.1</div><span class="header-actions" style="margin-left:auto; display:inline-flex; gap:8px; align-items:center;"><button class="btn" onclick="saveConfig()">保存配置</button><button class="btn" onclick="document.getElementById('configFileInput').click()">加载配置</button></span><input type="file" id="configFileInput" accept=".json,application/json" style="display:none" onchange="handleConfigFile(event)"></header>
 
 <main class="main-layout">
   <div class="top-row">
@@ -1229,6 +1229,7 @@ tr.banned-row:hover {
       <div class="colmap-modal-body">
         <p class="colmap-note">“关键词词组”为必填列；其余字段未识别仅提示，不影响解析与后续操作。可手动调整每列对应的字段。</p>
         <div id="colMapRows"></div>
+        <div id="colMapWarn" style="display:none; margin-top:10px; padding:8px 10px; border-radius:6px; background:rgba(233,69,96,0.12); color:#e94560; font-size:13px; font-weight:600;"></div>
       </div>
       <div class="colmap-modal-footer">
         <button class="btn" onclick="closeColMapModal()">取消</button>
@@ -5061,11 +5062,13 @@ function handleFileUpload(event) {
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
         const header = rows[0] || [];
         const auto = buildColumnMap(header).map;
-        // v4.3：列数相同时，读取上次映射作为默认
-        let initial = auto;
+        // v4.3：默认以本次自动识别为准；仅当某字段自动识别未命中时，才用上次保存的映射补缺（避免旧映射整体覆盖导致数值列被误配为「忽略」）
+        let initial = Object.assign({}, auto);
         try {
           const saved = JSON.parse(localStorage.getItem('wordScorer_colmap') || 'null');
-          if (saved && saved.colCount === header.length && saved.map) initial = saved.map;
+          if (saved && saved.colCount === header.length && saved.map) {
+            for (const k in saved.map) { if (initial[k] == null) initial[k] = saved.map[k]; }
+          }
         } catch (e2) {}
         openColMapModal(rows, header, initial);
       } catch (err) {
@@ -5105,7 +5108,7 @@ const COLMAP_FIELDS = [
   { key: 'searchVolume', label: '搜索量',
     aliases: ['搜索量','月搜索量','searchvolume','volume','sv'] },
   { key: 'competitorCount', label: '竞品数',
-    aliases: ['竞品数','竞品','competitors','compete'] },
+    aliases: ['竞品数','竞品','competitors','compete','competitor','competition'] },
   { key: 'cpr', label: 'CPR',
     aliases: ['cpr'] },
   { key: 'adRank', label: '广告排名',
@@ -5157,15 +5160,32 @@ function openColMapModal(rows, header, initialMap) {
     const selectEl = document.createElement('select');
     selectEl.setAttribute('data-col', String(i));
     selectEl.innerHTML = opts;
+    selectEl.setAttribute('onchange', 'updateColMapWarn()');
     row.appendChild(nameSpan);
     row.appendChild(selectEl);
     container.appendChild(row);
   }
   document.getElementById('colMapModal').classList.add('active');
+  updateColMapWarn();
 }
 function closeColMapModal() {
   document.getElementById('colMapModal').classList.remove('active');
   _colMapRows = null;
+}
+
+function updateColMapWarn() {
+  const selects = document.querySelectorAll('#colMapRows select');
+  const confirmed = {};
+  selects.forEach(s => { const v = s.value; if (v) confirmed[v] = true; });
+  const unmatched = COLMAP_FIELDS.filter(f => !f.required && !confirmed[f.key]).map(f => f.label);
+  const warn = document.getElementById('colMapWarn');
+  if (!warn) return;
+  if (unmatched.length > 0) {
+    warn.innerHTML = '⚠️ 以下字段未映射，对应数值将按 0 处理：' + unmatched.join('、');
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
 }
 function confirmColMap() {
   const selects = document.querySelectorAll('#colMapRows select');
@@ -6979,7 +6999,7 @@ function saveConfig() {
     };
 
     const data = {
-      meta: { tool: '筛词神器', version: '4.3', exportedAt: new Date().toISOString() },
+      meta: { tool: '筛词神器', version: '4.3.1', exportedAt: new Date().toISOString() },
       categoryWords,
       brands,
       preps,
@@ -7160,6 +7180,12 @@ function applyConfig(data) {
     </div>
     <div class="help-body" style="padding:16px; flex:1; display:flex; flex-direction:column; overflow:hidden;">
             <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:16px;">
+        <h4 style="color:#e94560; margin:8px 0;">v4.3.1 (2026-07-09)</h4>
+        <ul style="margin-left:20px;">
+          <li><strong>Bug 修复：Excel 导出竞品数 / CPR 为 0</strong>：根因为列映射弹窗"记住上次映射"会整体覆盖本次自动识别，导致旧错误映射被持久化、竞品数/CPR 永久归零；英文表头 "Competitor Count" 因别名缺失而漏配。修复：默认以本次自动识别为准、旧映射仅补缺；竞品数别名补全 competitor/competition；弹窗内新增未映射字段实时红色告警，避免盲确认。</li>
+        </ul>
+      </div>
+      <div style="background:#1a1a2e; padding:12px; border-radius:6px; margin-bottom:16px;">
         <h4 style="color:#e94560; margin:8px 0;">v4.3 (2026-07-09)</h4>
         <ul style="margin-left:20px;">
           <li><strong>Excel 表头智能识别 + 列映射弹窗</strong>：上传 Excel 后自动识别列（关键词词组采用模糊匹配且为必填项，缺失则报错拦截；竞品数/CPR/广告排名/自然排名/重复 六项可识别项，未命中仅提示不阻塞）。识别后弹出映射确认弹窗，可手动调整每一列对应字段，确认后解析，并记住本次映射作为下次默认。</li>
